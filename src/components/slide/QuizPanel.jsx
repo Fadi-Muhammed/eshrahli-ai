@@ -3,8 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { generateSingleQuestion, generateGlossary } from '../../api/ai'
 import { useQuiz, useUpsertQuiz } from '../../hooks/useQuizzes'
 import { useLanguage } from '../LanguageContext'
-import { GraduationCap, RefreshCw, AlertCircle } from 'lucide-react'
-import { toast } from 'sonner'
+import { GraduationCap, RefreshCw } from 'lucide-react'
 import { renderInline } from './ArabicWordTooltip'
 
 const TOTAL = 4
@@ -147,39 +146,16 @@ function QuestionSkeleton({ index }) {
   )
 }
 
-// ─── Error card ───────────────────────────────────────────────────────────────
-function QuestionError({ index, onRetry }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center justify-between"
-    >
-      <div className="flex items-center gap-2 text-red-600 text-sm">
-        <AlertCircle size={15} />
-        <span>Question {index + 1} failed to load</span>
-      </div>
-      <button
-        onClick={onRetry}
-        className="text-xs text-red-600 underline hover:no-underline"
-      >
-        Retry
-      </button>
-    </motion.div>
-  )
-}
-
 // ─── Main panel ───────────────────────────────────────────────────────────────
 export default function QuizPanel({ slide }) {
   const { t } = useLanguage()
   const { data: savedQuiz } = useQuiz(slide.id)
   const upsertQuiz = useUpsertQuiz()
 
-  // slots[i]: null = pending | { _loading } | { _error } | { question data... }
+  // slots[i]: { _loading: true } while pending, question object when done
   const [slots, setSlots] = useState(null)
   const [generating, setGenerating] = useState(false)
 
-  // Load saved quiz on mount
   useEffect(() => {
     if (savedQuiz?.questions && !slots && !generating) {
       setSlots(savedQuiz.questions)
@@ -187,56 +163,39 @@ export default function QuizPanel({ slide }) {
   }, [savedQuiz])
 
   const readyCount = useMemo(
-    () => slots?.filter((s) => s && !s._loading && !s._error).length ?? 0,
+    () => slots?.filter((s) => s && !s._loading).length ?? 0,
     [slots]
   )
 
   const generateOne = async (index) => {
-    try {
-      const q = await generateSingleQuestion(slide.original_text, index)
-      const glossary = q.explanation
-        ? await generateGlossary(q.explanation).catch(() => ({}))
-        : {}
-      const fullQ = { ...q, glossary }
-      setSlots((prev) => {
-        const next = [...prev]
-        next[index] = fullQ
-        return next
-      })
-      return fullQ
-    } catch (err) {
-      setSlots((prev) => {
-        const next = [...prev]
-        next[index] = { _error: true }
-        return next
-      })
-      return null
-    }
+    // generateSingleQuestion never throws — has internal retry + fallback
+    const q = await generateSingleQuestion(slide.original_text, index)
+    const glossary = q.explanation
+      ? await generateGlossary(q.explanation).catch(() => ({}))
+      : {}
+    const fullQ = { ...q, glossary }
+    setSlots((prev) => {
+      const next = [...prev]
+      next[index] = fullQ
+      return next
+    })
+    return fullQ
   }
 
   const handleGenerate = async () => {
-    if (!slide.original_text) {
-      toast.error('This slide has no text content.')
-      return
-    }
+    if (!slide.original_text) return
     setGenerating(true)
     setSlots(Array.from({ length: TOTAL }, () => ({ _loading: true })))
 
-    // Fire all 4 in parallel
-    const promises = Array.from({ length: TOTAL }, (_, i) => generateOne(i))
-    const results = await Promise.all(promises)
+    const results = await Promise.all(
+      Array.from({ length: TOTAL }, (_, i) => generateOne(i))
+    )
 
-    const finalQs = results.filter(Boolean)
-    if (finalQs.length > 0) {
-      upsertQuiz.mutateAsync({ slideId: slide.id, questions: finalQs, glossary: {} }).catch(() => {})
-    } else {
-      toast.error('All questions failed. Please try again.')
-    }
-
+    upsertQuiz.mutateAsync({ slideId: slide.id, questions: results, glossary: {} }).catch(() => {})
     setGenerating(false)
   }
 
-  // Display in order: show slot[i] only if all previous slots are resolved
+  // Show questions in order — skeleton holds if predecessor not yet ready
   const orderedSlots = useMemo(() => {
     if (!slots) return []
     const result = []
@@ -244,13 +203,9 @@ export default function QuizPanel({ slide }) {
       const s = slots[i]
       if (!s || s._loading) {
         result.push({ type: 'loading', index: i })
-        break // stop — everything after must also wait
-      } else if (s._error) {
-        result.push({ type: 'error', index: i })
-        // continue showing the rest if subsequent are ready
-      } else {
-        result.push({ type: 'question', index: i, data: s })
+        break
       }
+      result.push({ type: 'question', index: i, data: s })
     }
     return result
   }, [slots])
@@ -259,7 +214,6 @@ export default function QuizPanel({ slide }) {
 
   return (
     <div className="flex flex-col gap-3 h-full">
-      {/* Toolbar */}
       <div className="flex items-center justify-between shrink-0">
         <button
           onClick={handleGenerate}
@@ -281,18 +235,16 @@ export default function QuizPanel({ slide }) {
         </button>
 
         {generating && (
-          <div className="flex gap-1">
+          <div className="flex gap-1.5 items-center">
             {Array.from({ length: TOTAL }, (_, i) => {
-              const s = slots?.[i]
-              const done = s && !s._loading && !s._error
-              const err = s?._error
+              const done = slots?.[i] && !slots[i]._loading
               return (
                 <motion.div
                   key={i}
                   className={`w-2 h-2 rounded-full transition-colors duration-300 ${
-                    done ? 'bg-[#00C2CB]' : err ? 'bg-red-400' : 'bg-muted-foreground/30'
+                    done ? 'bg-[#00C2CB]' : 'bg-muted-foreground/25'
                   }`}
-                  animate={done ? { scale: [1, 1.4, 1] } : {}}
+                  animate={done ? { scale: [1, 1.5, 1] } : {}}
                   transition={{ duration: 0.3 }}
                 />
               )
@@ -301,7 +253,6 @@ export default function QuizPanel({ slide }) {
         )}
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-y-auto flex flex-col gap-3 pb-2">
         {!hasContent && !generating && (
           <div className="text-center py-12 text-muted-foreground text-sm">
@@ -312,28 +263,11 @@ export default function QuizPanel({ slide }) {
         )}
 
         <AnimatePresence mode="popLayout">
-          {orderedSlots.map((slot) => {
-            if (slot.type === 'loading') {
-              return <QuestionSkeleton key={`sk-${slot.index}`} index={slot.index} />
-            }
-            if (slot.type === 'error') {
-              return (
-                <QuestionError
-                  key={`err-${slot.index}`}
-                  index={slot.index}
-                  onRetry={() => {
-                    setSlots((prev) => {
-                      const next = [...prev]
-                      next[slot.index] = { _loading: true }
-                      return next
-                    })
-                    generateOne(slot.index)
-                  }}
-                />
-              )
-            }
-            return <QuizQuestion key={`q-${slot.index}`} question={slot.data} index={slot.index} />
-          })}
+          {orderedSlots.map((slot) =>
+            slot.type === 'loading'
+              ? <QuestionSkeleton key={`sk-${slot.index}`} index={slot.index} />
+              : <QuizQuestion key={`q-${slot.index}`} question={slot.data} index={slot.index} />
+          )}
         </AnimatePresence>
       </div>
     </div>

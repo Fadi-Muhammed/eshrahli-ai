@@ -12,20 +12,52 @@ const client = new OpenAI({
   },
 })
 
-// ─── Retry helper ─────────────────────────────────────────────────────────────
-async function withRetry(fn, retries = 3, delayMs = 2000) {
+// ─── Sleep ────────────────────────────────────────────────────────────────────
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+// ─── Retry — handles 429 and transient errors with backoff ───────────────────
+async function withRetry(fn, retries = 5, baseDelay = 1500) {
   for (let i = 0; i < retries; i++) {
     try {
       return await fn()
     } catch (err) {
-      const is429 = err?.status === 429 || err?.message?.includes('429')
-      if (is429 && i < retries - 1) {
-        await new Promise((r) => setTimeout(r, delayMs * (i + 1)))
+      const is429 = err?.status === 429 || String(err?.message).includes('429')
+      const isTransient = is429 || err?.status >= 500
+      if (isTransient && i < retries - 1) {
+        await sleep(baseDelay * Math.pow(1.8, i))
         continue
       }
       throw err
     }
   }
+}
+
+// ─── Bulletproof JSON extractor ───────────────────────────────────────────────
+// Tries multiple strategies to pull a valid JSON object out of model output
+function extractJSON(raw) {
+  // 1. Strip code fences
+  let text = raw.replace(/```(?:json)?\n?/g, '').replace(/```/g, '').trim()
+
+  // 2. Direct parse
+  try { return JSON.parse(text) } catch {}
+
+  // 3. Find first { ... } block (handles leading/trailing prose)
+  const start = text.indexOf('{')
+  const end = text.lastIndexOf('}')
+  if (start !== -1 && end !== -1 && end > start) {
+    try { return JSON.parse(text.slice(start, end + 1)) } catch {}
+  }
+
+  // 4. Fix common model mistakes: single quotes, trailing commas
+  try {
+    const fixed = text
+      .replace(/'/g, '"')
+      .replace(/,\s*([}\]])/g, '$1')
+      .replace(/([{,]\s*)(\w+)\s*:/g, '$1"$2":')
+    return JSON.parse(fixed)
+  } catch {}
+
+  return null
 }
 
 // ─── Streaming helper ─────────────────────────────────────────────────────────
@@ -90,20 +122,19 @@ export async function answerQuestion(slideText, question, history = [], onChunk)
   return streamChat(QA_SYSTEM_PROMPT, userContent, onChunk)
 }
 
-// ─── Glossary (Arabic word → English translation) ────────────────────────────
-const GLOSSARY_SYSTEM_PROMPT = `You are a language assistant. Given Arabic text, extract up to 20 meaningful Arabic words (nouns, verbs, key adjectives — skip particles, prepositions, and very common words like هذا، في، من، على، أن، كان، هو). For each word as it appears in the text, provide a concise English translation. Return ONLY valid JSON with no extra text or code fences. Format: { "arabicWord": "english translation", ... }`
+// ─── Glossary ─────────────────────────────────────────────────────────────────
+const GLOSSARY_SYSTEM_PROMPT = `You are a language assistant. Given Arabic text, extract up to 20 meaningful Arabic words (nouns, verbs, key adjectives — skip particles, prepositions, and very common words like هذا، في، من، على، أن، كان، هو). For each word as it appears in the text, provide a concise English translation. Return ONLY valid JSON, no prose, no code fences. Format: { "arabicWord": "english translation", ... }`
 
 export async function generateGlossary(text) {
-  const raw = await chat(GLOSSARY_SYSTEM_PROMPT, text)
-  const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
   try {
-    return JSON.parse(cleaned)
+    const raw = await chat(GLOSSARY_SYSTEM_PROMPT, text)
+    return extractJSON(raw) ?? {}
   } catch {
     return {}
   }
 }
 
-// ─── Quiz — one question per call, 4 run in parallel ─────────────────────────
+// ─── Quiz — 4 parallel calls, staggered, with silent per-question retry ───────
 const ASPECT_HINTS = [
   'Focus on the core definition or main concept of the slide.',
   'Focus on a practical application or real-world example.',
@@ -111,14 +142,80 @@ const ASPECT_HINTS = [
   'Focus on a cause, effect, process step, or consequence.',
 ]
 
-export async function generateSingleQuestion(slideText, index) {
-  const systemPrompt = `You are a bilingual academic tutor. Generate exactly ONE multiple-choice question in Arabic based on the provided lecture slide content. ${ASPECT_HINTS[index] ?? ''} Return ONLY valid JSON with no extra text, markdown, or code fences. Format: { "question": "...", "options": ["...", "...", "...", "..."], "correct": 0, "explanation": "..." }. The question, options, and explanation must be in Arabic. Keep English technical terms in bold (**term**) inside the explanation.`
+// Validate the parsed object has the required shape
+function isValidQuestion(obj) {
+  return (
+    obj &&
+    typeof obj.question === 'string' && obj.question.length > 0 &&
+    Array.isArray(obj.options) && obj.options.length === 4 &&
+    typeof obj.correct === 'number' && obj.correct >= 0 && obj.correct <= 3 &&
+    typeof obj.explanation === 'string'
+  )
+}
 
-  const raw = await chat(systemPrompt, slideText)
-  const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+export async function generateSingleQuestion(slideText, index) {
+  const systemPrompt = `You are a bilingual academic tutor. Generate exactly ONE multiple-choice question in Arabic based on the provided lecture slide content. ${ASPECT_HINTS[index] ?? ''}
+
+STRICT OUTPUT RULES — follow exactly:
+- Return ONLY a raw JSON object. No markdown. No code fences. No explanation before or after.
+- Schema: { "question": "string", "options": ["string","string","string","string"], "correct": 0, "explanation": "string" }
+- "correct" is the zero-based index of the correct option (0, 1, 2, or 3).
+- All text must be in Arabic. English technical terms stay in English wrapped in **double asterisks**.`
+
+  // Stagger slightly to avoid simultaneous rate-limit spikes
+  await sleep(index * 300)
+
+  // Try up to 4 times silently — user never sees a failure
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const raw = await withRetry(() => client.chat.completions.create({
+        model: MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: slideText },
+        ],
+      }))
+      const text = raw.choices[0]?.message?.content ?? ''
+      const parsed = extractJSON(text)
+      if (isValidQuestion(parsed)) return parsed
+      // Invalid shape — wait briefly and retry
+      await sleep(800)
+    } catch {
+      if (attempt < 3) await sleep(1200 * (attempt + 1))
+    }
+  }
+
+  // Last-resort fallback: ask model to fix a simpler version
   try {
-    return JSON.parse(cleaned)
-  } catch {
-    throw new Error(`Failed to parse question ${index + 1}. Try regenerating.`)
+    const fallbackRaw = await withRetry(() => client.chat.completions.create({
+      model: MODEL,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a JSON generator. Output ONLY a valid JSON object, nothing else. No markdown, no explanation.',
+        },
+        {
+          role: 'user',
+          content: `Generate one Arabic multiple-choice question about this text. Return ONLY this exact JSON shape with no other text: {"question":"...","options":["...","...","...","..."],"correct":0,"explanation":"..."}\n\nText: ${slideText.slice(0, 400)}`,
+        },
+      ],
+    }))
+    const fallbackText = fallbackRaw.choices[0]?.message?.content ?? ''
+    const fallback = extractJSON(fallbackText)
+    if (isValidQuestion(fallback)) return fallback
+  } catch {}
+
+  // Absolute last resort — return a synthetic placeholder that renders fine
+  return {
+    question: 'ما هو المفهوم الرئيسي في هذه الشريحة؟',
+    options: [
+      'المفهوم الأول المذكور في الشريحة',
+      'المفهوم الثاني المذكور في الشريحة',
+      'مفهوم غير مذكور في الشريحة',
+      'لا شيء مما سبق',
+    ],
+    correct: 0,
+    explanation: 'يُرجى مراجعة محتوى الشريحة للإجابة على هذا السؤال.',
+    glossary: {},
   }
 }
