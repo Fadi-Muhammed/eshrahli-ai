@@ -1,12 +1,73 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 
+// ─── Portal tooltip — renders into document.body, never clipped ───────────────
+function TooltipPortal({ anchorRef, translation, show }) {
+  const [pos, setPos] = useState(null)
+  const tooltipRef = useRef(null)
+
+  const recompute = useCallback(() => {
+    if (!anchorRef.current) return
+    const rect = anchorRef.current.getBoundingClientRect()
+    const tipH = tooltipRef.current?.offsetHeight ?? 44
+    const tipW = tooltipRef.current?.offsetWidth ?? 120
+    const spaceAbove = rect.top
+    const spaceBelow = window.innerHeight - rect.bottom
+    const above = spaceAbove >= tipH + 8 || spaceAbove >= spaceBelow
+    const left = Math.min(
+      Math.max(rect.left + rect.width / 2 - tipW / 2, 8),
+      window.innerWidth - tipW - 8
+    )
+    const top = above
+      ? rect.top + window.scrollY - tipH - 10
+      : rect.bottom + window.scrollY + 10
+
+    setPos({ left, top, above })
+  }, [anchorRef])
+
+  useEffect(() => {
+    if (show) recompute()
+  }, [show, recompute])
+
+  if (!show || !pos) return null
+
+  return createPortal(
+    <div
+      ref={tooltipRef}
+      style={{ position: 'absolute', left: pos.left, top: pos.top, zIndex: 9999, pointerEvents: 'none' }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.88, y: pos.above ? 4 : -4 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.88, y: pos.above ? 4 : -4 }}
+        transition={{ duration: 0.13, ease: 'easeOut' }}
+      >
+        <div className="bg-gray-900 border border-[#00C2CB]/30 rounded-xl px-3 py-2 shadow-2xl whitespace-nowrap flex items-center gap-2">
+          <span className="text-[9px] font-bold text-[#00C2CB] uppercase tracking-widest bg-[#00C2CB]/10 px-1.5 py-0.5 rounded-md">
+            EN
+          </span>
+          <span className="text-white text-xs font-medium">{translation}</span>
+        </div>
+        {/* Arrow — points toward the word */}
+        <div className={`flex justify-center ${pos.above ? '-mt-[5px]' : 'order-first -mb-[5px] rotate-180'}`}>
+          <div className="w-2.5 h-2.5 bg-gray-900 border-b border-r border-[#00C2CB]/30 rotate-45" />
+        </div>
+      </motion.div>
+    </div>,
+    document.body
+  )
+}
+
+// ─── Word with tooltip ────────────────────────────────────────────────────────
 export function WordTooltip({ word, translation }) {
   const [show, setShow] = useState(false)
+  const anchorRef = useRef(null)
 
   return (
     <span className="relative inline">
       <span
+        ref={anchorRef}
         onMouseEnter={() => setShow(true)}
         onMouseLeave={() => setShow(false)}
         className="cursor-help transition-colors"
@@ -17,33 +78,14 @@ export function WordTooltip({ word, translation }) {
       >
         {word}
       </span>
-
       <AnimatePresence>
-        {show && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.88, y: 6 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.88, y: 6 }}
-            transition={{ duration: 0.13, ease: 'easeOut' }}
-            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2.5 z-50 pointer-events-none"
-          >
-            <div className="bg-gray-900 border border-[#00C2CB]/30 rounded-xl px-3 py-2 shadow-2xl whitespace-nowrap flex items-center gap-2">
-              <span className="text-[9px] font-bold text-[#00C2CB] uppercase tracking-widest bg-[#00C2CB]/10 px-1.5 py-0.5 rounded-md">
-                EN
-              </span>
-              <span className="text-white text-xs font-medium">{translation}</span>
-            </div>
-            <div className="flex justify-center -mt-[5px]">
-              <div className="w-2.5 h-2.5 bg-gray-900 border-b border-r border-[#00C2CB]/30 rotate-45" />
-            </div>
-          </motion.div>
-        )}
+        {show && <TooltipPortal anchorRef={anchorRef} translation={translation} show={show} />}
       </AnimatePresence>
     </span>
   )
 }
 
-// Apply glossary tooltips to a plain string — returns array of React nodes
+// ─── Apply glossary tooltips to a plain string ────────────────────────────────
 function applyTooltips(text, glossary, keyPrefix) {
   const words = Object.keys(glossary)
   if (!words.length) return [text]
@@ -60,19 +102,16 @@ function applyTooltips(text, glossary, keyPrefix) {
   )
 }
 
-// renderInline: handles **bold** markers + glossary tooltips on a raw string.
-// Use this instead of ReactMarkdown for quiz question/option text.
+// ─── renderInline: **bold** + glossary tooltips on raw strings ────────────────
 export function renderInline(text, glossary = {}, keyPrefix = 'ri') {
   if (!text) return null
 
-  // Split on **...** bold markers
   const boldRegex = /(\*\*[^*\n]+?\*\*)/g
   const parts = text.split(boldRegex)
 
   return parts.map((part, i) => {
     const isBold = /^\*\*[^*]+\*\*$/.test(part)
     const content = isBold ? part.slice(2, -2) : part
-
     const inner = applyTooltips(content, glossary, `${keyPrefix}-${i}`)
 
     if (isBold) {
@@ -86,7 +125,7 @@ export function renderInline(text, glossary = {}, keyPrefix = 'ri') {
   })
 }
 
-// processChildren — used by ReactMarkdown renderers in explanation/Q&A
+// ─── processChildren — for ReactMarkdown renderers (explanation / Q&A) ────────
 export function processChildren(children, glossary) {
   if (!glossary || Object.keys(glossary).length === 0) return children
 
