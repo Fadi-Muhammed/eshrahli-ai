@@ -285,7 +285,7 @@ export default function Course() {
             className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-lg text-sm font-medium hover:opacity-90"
           >
             <Upload size={15} />
-            Upload PPTX
+            Upload PPTX/PDF
           </motion.button>
         </motion.div>
       )}

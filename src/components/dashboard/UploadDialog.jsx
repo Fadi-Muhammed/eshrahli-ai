@@ -10,6 +10,21 @@ import { toast } from 'sonner'
 import { Upload, CheckCircle, X, ChevronDown } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
+function toErrorDetails(error) {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      cause: error.cause,
+    }
+  }
+  return {
+    message: String(error),
+    raw: error,
+  }
+}
+
 export default function UploadDialog({ onClose, defaultCourseId = '' }) {
   const { t } = useLanguage()
   const { user } = useAuth()
@@ -41,8 +56,8 @@ export default function UploadDialog({ onClose, defaultCourseId = '' }) {
   const handleFile = useCallback((f) => {
     if (!f) return
     const lowerName = f.name.toLowerCase()
-    const ok = lowerName.endsWith('.pptx')
-    if (!ok) { toast.error('Only PPTX files are supported.'); return }
+    const ok = lowerName.endsWith('.pptx') || lowerName.endsWith('.pdf')
+    if (!ok) { toast.error('Only PPTX or PDF files are supported.'); return }
     if (f.size > 52_428_800) { toast.error('File must be under 50 MB.'); return }
     setFile(f)
     setError(null)
@@ -69,7 +84,13 @@ export default function UploadDialog({ onClose, defaultCourseId = '' }) {
       setResult({ count: slides.length, courseId })
       setStep('done')
     } catch (err) {
-      setError(err.message ?? 'Upload failed')
+      const errorDetails = toErrorDetails(err)
+      console.error('[UploadDialog] Upload/extraction failed', {
+        courseId,
+        fileName: file?.name,
+        error: errorDetails,
+      })
+      setError(errorDetails.message || 'Upload failed')
       setStep('select')
     }
   }
@@ -148,7 +169,7 @@ export default function UploadDialog({ onClose, defaultCourseId = '' }) {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".pptx"
+                    accept=".pptx,.pdf"
                     className="hidden"
                     onChange={(e) => {
                       handleFile(e.target.files[0])
@@ -178,14 +199,29 @@ export default function UploadDialog({ onClose, defaultCourseId = '' }) {
                           <Upload size={22} className="text-primary" />
                         </div>
                         <p className="font-medium text-sm text-foreground">Drop your file here</p>
-                        <p className="text-xs text-muted-foreground">PPTX only · converted to PDF · max 50 MB</p>
+                        <p className="text-xs text-muted-foreground">PPTX preferred · PDF fallback · max 50 MB</p>
                       </motion.div>
                     )}
                   </AnimatePresence>
                 </div>
 
                 {error && (
-                  <p className="text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">{error}</p>
+                  <div className="space-y-2">
+                    <p className="text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">{error}</p>
+                    {String(error).includes('cannot be converted reliably in the browser engine') && (
+                      <p className="text-xs text-muted-foreground rounded-lg border border-border px-3 py-2 bg-muted/40">
+                        Tip: run the backend converter and set <code>VITE_PPTX_CONVERTER_URL</code> to bypass browser conversion limits.
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleUpload}
+                      disabled={!file || !courseId}
+                      className="w-full px-4 py-2 text-sm rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Try again
+                    </button>
+                  </div>
                 )}
 
                 <div className="flex justify-end gap-2 pt-1">
