@@ -152,7 +152,7 @@ export default function Slide() {
   }
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 56px - 32px)' }}>
+    <div className="flex flex-col" style={{ height: 'calc(100vh - 72px - 24px)' }}>
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1 text-sm text-muted-foreground mb-3 shrink-0 flex-wrap">
         <Link to="/" className="hover:text-primary transition-colors">{t('dashboard')}</Link>

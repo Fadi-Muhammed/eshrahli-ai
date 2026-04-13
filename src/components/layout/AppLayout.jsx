@@ -9,7 +9,7 @@ export default function AppLayout() {
   return (
     <div className="min-h-screen bg-[#F4F6F8]">
       <Navbar />
-      <main className="pt-14 p-4 sm:p-6">
+      <main className="pt-[72px] px-4 sm:px-6 pb-6">
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
