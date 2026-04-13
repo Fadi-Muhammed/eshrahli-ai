@@ -50,7 +50,7 @@ async function streamChat(systemPrompt, userContent, onChunk) {
   return full
 }
 
-// ─── Non-streaming helper (for JSON responses) ────────────────────────────────
+// ─── Non-streaming helper ─────────────────────────────────────────────────────
 async function chat(systemPrompt, userContent) {
   const res = await withRetry(() => client.chat.completions.create({
     model: MODEL,
@@ -90,9 +90,6 @@ export async function answerQuestion(slideText, question, history = [], onChunk)
   return streamChat(QA_SYSTEM_PROMPT, userContent, onChunk)
 }
 
-// ─── Quiz (non-streaming — needs full JSON) ───────────────────────────────────
-const QUIZ_SYSTEM_PROMPT = `You are a bilingual academic tutor. Generate exactly 4 multiple-choice questions in Arabic based on the provided lecture slide content. Return ONLY valid JSON with no extra text, markdown, or code fences. Format: { "questions": [{ "question": "...", "options": ["...", "...", "...", "..."], "correct": 0, "explanation": "..." }] }. Questions and options must be in Arabic. Keep English technical terms bold in explanations.`
-
 // ─── Glossary (Arabic word → English translation) ────────────────────────────
 const GLOSSARY_SYSTEM_PROMPT = `You are a language assistant. Given Arabic text, extract up to 20 meaningful Arabic words (nouns, verbs, key adjectives — skip particles, prepositions, and very common words like هذا، في، من، على، أن، كان، هو). For each word as it appears in the text, provide a concise English translation. Return ONLY valid JSON with no extra text or code fences. Format: { "arabicWord": "english translation", ... }`
 
@@ -106,13 +103,22 @@ export async function generateGlossary(text) {
   }
 }
 
-export async function generateQuiz(slideText) {
-  const raw = await chat(QUIZ_SYSTEM_PROMPT, slideText)
+// ─── Quiz — one question per call, 4 run in parallel ─────────────────────────
+const ASPECT_HINTS = [
+  'Focus on the core definition or main concept of the slide.',
+  'Focus on a practical application or real-world example.',
+  'Focus on a comparison, difference, or relationship between concepts.',
+  'Focus on a cause, effect, process step, or consequence.',
+]
+
+export async function generateSingleQuestion(slideText, index) {
+  const systemPrompt = `You are a bilingual academic tutor. Generate exactly ONE multiple-choice question in Arabic based on the provided lecture slide content. ${ASPECT_HINTS[index] ?? ''} Return ONLY valid JSON with no extra text, markdown, or code fences. Format: { "question": "...", "options": ["...", "...", "...", "..."], "correct": 0, "explanation": "..." }. The question, options, and explanation must be in Arabic. Keep English technical terms in bold (**term**) inside the explanation.`
+
+  const raw = await chat(systemPrompt, slideText)
   const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
   try {
-    const parsed = JSON.parse(cleaned)
-    return parsed.questions ?? []
+    return JSON.parse(cleaned)
   } catch {
-    throw new Error('Failed to parse quiz. Try regenerating.')
+    throw new Error(`Failed to parse question ${index + 1}. Try regenerating.`)
   }
 }
