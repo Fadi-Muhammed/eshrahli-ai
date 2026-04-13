@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { motion, AnimatePresence } from 'framer-motion'
 import { generateExplanation, generateGlossary } from '../../api/ai'
@@ -31,21 +31,11 @@ export default function ExplanationDisplay({ slide }) {
   const [generating, setGenerating] = useState(false)
   const [streamingText, setStreamingText] = useState('')
   const [justSaved, setJustSaved] = useState(false)
-  const [glossary, setGlossary] = useState({})
-  const [loadingGlossary, setLoadingGlossary] = useState(false)
+  const [generatingGlossary, setGeneratingGlossary] = useState(false)
 
   const displayed = generating ? streamingText : (savedExplanation?.arabic_explanation ?? streamingText)
-
-  // Load glossary whenever saved explanation changes (e.g. on first mount)
-  useEffect(() => {
-    if (savedExplanation?.arabic_explanation) {
-      setLoadingGlossary(true)
-      generateGlossary(savedExplanation.arabic_explanation)
-        .then(setGlossary)
-        .catch(() => {})
-        .finally(() => setLoadingGlossary(false))
-    }
-  }, [savedExplanation?.arabic_explanation])
+  // Use saved glossary from DB, fall back to empty
+  const glossary = savedExplanation?.glossary ?? {}
 
   const handleGenerate = async () => {
     if (!slide.original_text?.trim()) {
@@ -54,45 +44,41 @@ export default function ExplanationDisplay({ slide }) {
     }
     setGenerating(true)
     setStreamingText('')
-    setGlossary({})
     try {
       const result = await generateExplanation(slide.original_text, (partial) => {
         setStreamingText(partial)
       })
+
+      // Generate glossary then save both together
+      setGeneratingGlossary(true)
+      const glossaryResult = await generateGlossary(result).catch(() => ({}))
+      setGeneratingGlossary(false)
+
       await upsert.mutateAsync({
         slideId: slide.id,
         courseId: slide.course_id,
         arabicExplanation: result,
+        glossary: glossaryResult,
       })
       setStreamingText('')
       setJustSaved(true)
       setTimeout(() => setJustSaved(false), 2500)
-      // Build glossary in background after save
-      setLoadingGlossary(true)
-      generateGlossary(result)
-        .then(setGlossary)
-        .catch(() => {})
-        .finally(() => setLoadingGlossary(false))
     } catch (err) {
       toast.error(err.message ?? 'Generation failed. Try again.')
     } finally {
       setGenerating(false)
+      setGeneratingGlossary(false)
     }
   }
 
-  // Build markdown components with glossary tooltips
   const markdownComponents = useMemo(() => ({
     strong: ({ children }) => (
       <strong style={{ color: '#00C2CB', fontWeight: 700 }}>
         {processChildren(children, glossary)}
       </strong>
     ),
-    p: ({ children }) => (
-      <p>{processChildren(children, glossary)}</p>
-    ),
-    li: ({ children }) => (
-      <li>{processChildren(children, glossary)}</li>
-    ),
+    p: ({ children }) => <p>{processChildren(children, glossary)}</p>,
+    li: ({ children }) => <li>{processChildren(children, glossary)}</li>,
   }), [glossary])
 
   return (
@@ -101,9 +87,9 @@ export default function ExplanationDisplay({ slide }) {
         <motion.button
           whileTap={{ scale: 0.96 }}
           onClick={handleGenerate}
-          disabled={generating}
+          disabled={generating || generatingGlossary}
           className="flex items-center gap-2 text-white px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-60 transition-all"
-          style={{ background: generating ? '#aaa' : '#00C2CB' }}
+          style={{ background: (generating || generatingGlossary) ? '#aaa' : '#00C2CB' }}
         >
           {generating ? (
             <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -112,7 +98,7 @@ export default function ExplanationDisplay({ slide }) {
           ) : (
             <Sparkles size={13} />
           )}
-          {displayed ? t('regenerate') : t('generateExplanation')}
+          {generatingGlossary ? 'Building tooltips…' : displayed ? t('regenerate') : t('generateExplanation')}
         </motion.button>
 
         <AnimatePresence>
@@ -127,13 +113,6 @@ export default function ExplanationDisplay({ slide }) {
             </motion.span>
           )}
         </AnimatePresence>
-
-        {loadingGlossary && !generating && (
-          <span className="text-xs text-muted-foreground flex items-center gap-1">
-            <span className="w-2.5 h-2.5 border border-[#00C2CB] border-t-transparent rounded-full animate-spin inline-block" />
-            Loading tooltips…
-          </span>
-        )}
       </div>
 
       <AnimatePresence mode="wait">

@@ -23,11 +23,11 @@ export function useUpsertQuiz() {
   const { user } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ slideId, questions }) => {
+    mutationFn: async ({ slideId, questions, glossary }) => {
       const { data, error } = await supabase
         .from('quizzes')
         .upsert(
-          { slide_id: slideId, questions, user_id: user.id },
+          { slide_id: slideId, questions, glossary: glossary ?? {}, user_id: user.id },
           { onConflict: 'slide_id,user_id' }
         )
         .select()

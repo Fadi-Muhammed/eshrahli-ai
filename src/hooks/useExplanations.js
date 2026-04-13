@@ -39,11 +39,17 @@ export function useUpsertExplanation() {
   const { user } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ slideId, courseId, arabicExplanation }) => {
+    mutationFn: async ({ slideId, courseId, arabicExplanation, glossary }) => {
       const { data, error } = await supabase
         .from('explanations')
         .upsert(
-          { slide_id: slideId, course_id: courseId, arabic_explanation: arabicExplanation, user_id: user.id },
+          {
+            slide_id: slideId,
+            course_id: courseId,
+            arabic_explanation: arabicExplanation,
+            glossary: glossary ?? {},
+            user_id: user.id,
+          },
           { onConflict: 'slide_id,user_id' }
         )
         .select()

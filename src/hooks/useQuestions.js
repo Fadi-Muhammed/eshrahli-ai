@@ -23,10 +23,10 @@ export function useCreateQuestion() {
   const { user } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ slideId, questionText, answerText }) => {
+    mutationFn: async ({ slideId, questionText, answerText, glossary }) => {
       const { data, error } = await supabase
         .from('questions')
-        .insert({ slide_id: slideId, question_text: questionText, answer_text: answerText, user_id: user.id })
+        .insert({ slide_id: slideId, question_text: questionText, answer_text: answerText, glossary: glossary ?? {}, user_id: user.id })
         .select()
         .single()
       if (error) throw error

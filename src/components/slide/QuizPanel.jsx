@@ -73,25 +73,13 @@ export default function QuizPanel({ slide }) {
   const { t } = useLanguage()
   const { data: savedQuiz } = useQuiz(slide.id)
   const upsertQuiz = useUpsertQuiz()
-
-  const [questions, setQuestions] = useState(savedQuiz?.questions ?? null)
+  const [questions, setQuestions] = useState(null)
   const [generating, setGenerating] = useState(false)
-  const [glossary, setGlossary] = useState({})
+  const [generatingGlossary, setGeneratingGlossary] = useState(false)
 
   const displayed = questions ?? savedQuiz?.questions
-
-  // Build glossary from all explanations combined
-  const buildGlossary = (qs) => {
-    const combined = qs.map((q) => q.explanation ?? '').join(' ')
-    if (combined.trim()) {
-      generateGlossary(combined).then(setGlossary).catch(() => {})
-    }
-  }
-
-  // Load glossary for saved quiz on mount
-  useMemo(() => {
-    if (savedQuiz?.questions) buildGlossary(savedQuiz.questions)
-  }, [savedQuiz?.questions])
+  // Use saved glossary from DB
+  const glossary = savedQuiz?.glossary ?? {}
 
   const handleGenerate = async () => {
     if (!slide.original_text) {
@@ -99,17 +87,25 @@ export default function QuizPanel({ slide }) {
       return
     }
     setGenerating(true)
-    setGlossary({})
     try {
       const qs = await generateQuiz(slide.original_text)
       setQuestions(qs)
-      await upsertQuiz.mutateAsync({ slideId: slide.id, questions: qs })
+
+      // Build glossary from all explanations combined
+      setGeneratingGlossary(true)
+      const combined = qs.map((q) => q.explanation ?? '').join(' ')
+      const glossaryResult = combined.trim()
+        ? await generateGlossary(combined).catch(() => ({}))
+        : {}
+      setGeneratingGlossary(false)
+
+      await upsertQuiz.mutateAsync({ slideId: slide.id, questions: qs, glossary: glossaryResult })
       toast.success('Quiz generated!')
-      buildGlossary(qs)
     } catch (err) {
       toast.error(err.message ?? 'Failed to generate quiz')
     } finally {
       setGenerating(false)
+      setGeneratingGlossary(false)
     }
   }
 
@@ -118,15 +114,15 @@ export default function QuizPanel({ slide }) {
       <div className="flex items-center gap-2">
         <button
           onClick={handleGenerate}
-          disabled={generating}
+          disabled={generating || generatingGlossary}
           className="flex items-center gap-2 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-60"
         >
-          {generating ? (
+          {(generating || generatingGlossary) ? (
             <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
           ) : (
             <GraduationCap size={14} />
           )}
-          {displayed ? <><RefreshCw size={13} /> Regenerate</> : t('generateQuiz')}
+          {generatingGlossary ? 'Building tooltips…' : displayed ? <><RefreshCw size={13} /> Regenerate</> : t('generateQuiz')}
         </button>
       </div>
 

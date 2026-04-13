@@ -36,21 +36,14 @@ function TypingDots() {
   )
 }
 
-// Per-answer glossary wrapper
-function AnswerBubble({ answerText }) {
-  const [glossary, setGlossary] = useState({})
-
-  useEffect(() => {
-    if (answerText) {
-      generateGlossary(answerText).then(setGlossary).catch(() => {})
-    }
-  }, [answerText])
-
+// Renders a saved answer with its persisted glossary
+function AnswerBubble({ question }) {
+  const glossary = question.glossary ?? {}
   const markdownComponents = useMemo(() => makeMarkdownComponents(glossary), [glossary])
 
   return (
     <div dir="rtl" className="bg-white border border-border px-3 py-2.5 rounded-2xl rounded-bl-none text-sm max-w-[85%] prose prose-sm">
-      <ReactMarkdown components={markdownComponents}>{answerText}</ReactMarkdown>
+      <ReactMarkdown components={markdownComponents}>{question.answer_text}</ReactMarkdown>
     </div>
   )
 }
@@ -83,10 +76,14 @@ export default function QuestionThread({ slide }) {
         questions,
         (partial) => setStreamingAnswer(partial)
       )
+      // Generate glossary for this answer before saving
+      const glossary = await generateGlossary(answer).catch(() => ({}))
+
       await createQuestion.mutateAsync({
         slideId: slide.id,
         questionText: q,
         answerText: answer,
+        glossary,
       })
       setStreamingAnswer('')
       setPendingQuestion('')
@@ -105,7 +102,6 @@ export default function QuestionThread({ slide }) {
     }
   }
 
-  // Streaming answer uses simple markdown components (no glossary yet — it's still being typed)
   const streamingComponents = useMemo(() => makeMarkdownComponents({}), [])
 
   return (
@@ -126,7 +122,7 @@ export default function QuestionThread({ slide }) {
               </div>
             </div>
             <div className="flex justify-start">
-              <AnswerBubble answerText={q.answer_text} />
+              <AnswerBubble question={q} />
             </div>
           </div>
         ))}
