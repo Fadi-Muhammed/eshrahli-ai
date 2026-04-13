@@ -1,4 +1,4 @@
--- Bridge AI — Supabase Schema
+-- Eshrahli — Supabase Schema
 -- Run this in your Supabase project: SQL Editor > New query > paste & run
 
 -- Enable Row Level Security on all tables

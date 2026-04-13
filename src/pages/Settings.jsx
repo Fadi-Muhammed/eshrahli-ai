@@ -52,7 +52,7 @@ export default function Settings() {
             About
           </div>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            <span className="font-semibold text-foreground">Bridge AI</span> helps Arabic-speaking university students understand English-taught courses by generating Arabic explanations with key English academic terms preserved and highlighted.
+            <span className="font-semibold text-foreground">Eshrahli</span> helps Arabic-speaking university students understand English-taught courses by generating Arabic explanations with key English academic terms preserved and highlighted.
           </p>
         </div>
       </div>

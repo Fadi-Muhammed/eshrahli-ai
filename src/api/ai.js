@@ -8,7 +8,7 @@ const client = new OpenAI({
   dangerouslyAllowBrowser: true,
   defaultHeaders: {
     'HTTP-Referer': 'https://eshrahli.ai',
-    'X-Title': 'Eshrahli AI',
+    'X-Title': 'Eshrahli',
   },
 })
 

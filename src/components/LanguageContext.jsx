@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 
 const translations = {
   ar: {
-    appName: 'Bridge AI',
+    appName: 'Eshrahli',
     dashboard: 'الرئيسية',
     myCourses: 'مقرراتي',
     newCourse: 'مقرر جديد',
@@ -43,7 +43,7 @@ const translations = {
     next: 'التالي',
   },
   en: {
-    appName: 'Bridge AI',
+    appName: 'Eshrahli',
     dashboard: 'Dashboard',
     myCourses: 'My Courses',
     newCourse: 'New Course',
