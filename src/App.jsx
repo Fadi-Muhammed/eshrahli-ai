@@ -12,6 +12,7 @@ import Saved from './pages/Saved'
 import Favorites from './pages/Favorites'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
+import ResetPassword from './pages/ResetPassword'
 import ProtectedRoute from './lib/ProtectedRoute'
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
           <LanguageProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route element={<ProtectedRoute />}>
                 <Route element={<AppLayout />}>
                   <Route index element={<Dashboard />} />
