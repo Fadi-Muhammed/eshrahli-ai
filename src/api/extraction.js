@@ -1,26 +1,6 @@
-import * as pdfjsLib from 'pdfjs-dist'
 import JSZip from 'jszip'
 import { supabase } from './supabaseClient'
-
-// Point pdf.js worker at its bundled asset
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.mjs',
-  import.meta.url
-).href
-
-// ─── PDF ─────────────────────────────────────────────────────────────────────
-async function extractPDF(file) {
-  const arrayBuffer = await file.arrayBuffer()
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-  const pages = []
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i)
-    const content = await page.getTextContent()
-    const text = content.items.map((item) => item.str).join(' ').trim()
-    pages.push(text)
-  }
-  return pages
-}
+import { convertPptxFileToPdfFile } from '../lib/pptxToPdf'
 
 // ─── PPTX ────────────────────────────────────────────────────────────────────
 async function extractPPTX(file) {
@@ -70,22 +50,25 @@ export async function extractAndCreateSlides({
   userId,
   onProgress,
 }) {
-  const isPDF = file.type === 'application/pdf' || file.name.endsWith('.pdf')
+  const lowerName = file.name.toLowerCase()
   const isPPTX =
     file.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
-    file.name.endsWith('.pptx')
+    lowerName.endsWith('.pptx')
 
-  if (!isPDF && !isPPTX) throw new Error('Only PDF and PPTX files are supported.')
+  if (!isPPTX) throw new Error('Only PPTX files are supported.')
 
   onProgress?.({ step: 'extracting', percent: 10 })
-  const pages = isPDF ? await extractPDF(file) : await extractPPTX(file)
+  const pages = await extractPPTX(file)
 
   if (pages.length === 0) throw new Error('No pages found in the file.')
 
-  onProgress?.({ step: 'uploading', percent: 40 })
-  const { path, url } = await uploadFile(file, userId)
+  onProgress?.({ step: 'converting', percent: 35 })
+  const pdfFile = await convertPptxFileToPdfFile(file)
 
-  onProgress?.({ step: 'saving', percent: 60 })
+  onProgress?.({ step: 'uploading', percent: 60 })
+  const { url } = await uploadFile(pdfFile, userId)
+
+  onProgress?.({ step: 'saving', percent: 80 })
 
   // Batch insert all slides
   const rows = pages.map((text, i) => ({

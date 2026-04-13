@@ -46,8 +46,8 @@ export default function Saved() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('saved')}</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
+          <h1 className="text-2xl font-bold text-primary">{t('saved')}</h1>
+          <p className="text-primary/80 text-sm mt-0.5">
             {isLoading ? '…' : `${explanations?.length ?? 0} saved explanations`}
           </p>
         </div>
@@ -61,7 +61,7 @@ export default function Saved() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search explanations…"
-            className="w-full border border-input rounded-lg pl-9 pr-9 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring bg-white"
+            className="w-full border border-input rounded-lg pl-9 pr-9 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring bg-card"
           />
           {search && (
             <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
@@ -72,11 +72,11 @@ export default function Saved() {
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-destructive rounded-lg p-4 text-sm">{error.message}</div>
+        <div className="bg-destructive/10 border border-destructive/30 text-destructive rounded-lg p-4 text-sm">{error.message}</div>
       )}
 
       {isLoading && (
-        <div className="bg-white border border-border rounded-xl divide-y divide-border overflow-hidden">
+        <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
           {[1, 2, 3].map((i) => <SkeletonRow key={i} />)}
         </div>
       )}
@@ -92,7 +92,7 @@ export default function Saved() {
               <Bookmark size={30} className="text-primary" />
             </div>
             <h2 className="text-lg font-semibold mb-2">{t('noSavedExplanations')}</h2>
-            <p className="text-muted-foreground text-sm max-w-xs">
+            <p className="text-primary/80 text-sm max-w-xs">
               Open any slide and generate an explanation — it will appear here automatically.
             </p>
           </motion.div>
@@ -102,7 +102,7 @@ export default function Saved() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-center py-12 text-muted-foreground text-sm"
+            className="text-center py-12 text-primary/80 text-sm"
           >
             No results for "<span className="font-medium text-foreground">{search}</span>"
           </motion.div>
@@ -124,7 +124,7 @@ export default function Saved() {
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">
               {courseName} · {items.length}
             </p>
-            <div className="bg-white border border-border rounded-xl divide-y divide-border overflow-hidden">
+            <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
               {items.map((exp, i) => (
                 <motion.button
                   key={exp.id}

@@ -23,7 +23,7 @@ function CourseCardWithCount({ course, index }) {
 
 function SkeletonCard() {
   return (
-    <div className="bg-white border border-border rounded-xl overflow-hidden animate-pulse">
+    <div className="bg-card border border-border rounded-xl overflow-hidden animate-pulse">
       <div className="h-2 bg-muted" />
       <div className="p-4">
         <div className="h-4 bg-muted rounded-md w-3/4 mb-2" />
@@ -45,15 +45,15 @@ export default function Dashboard() {
       {/* Page header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('myCourses')}</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
+          <h1 className="text-2xl font-bold text-primary">{t('myCourses')}</h1>
+          <p className="text-primary/80 text-sm mt-0.5">
             {isLoading ? '…' : `${courses?.length ?? 0} courses`}
           </p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => setUploadOpen(true)}
-            className="flex items-center gap-2 border border-border bg-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-muted transition-colors"
+            className="flex items-center gap-2 border border-border bg-card px-4 py-2 rounded-lg text-sm font-medium hover:bg-muted transition-colors"
           >
             <Upload size={15} />
             {t('upload')}
@@ -69,7 +69,7 @@ export default function Dashboard() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-destructive rounded-lg p-4 text-sm mb-4">
+        <div className="bg-destructive/10 border border-destructive/30 text-destructive rounded-lg p-4 text-sm mb-4">
           Failed to load courses: {error.message}
         </div>
       )}
@@ -90,12 +90,12 @@ export default function Dashboard() {
             <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center mb-5">
               <BookOpen size={32} className="text-primary" />
             </div>
-            <h2 className="text-xl font-semibold text-foreground mb-2">{t('noCoursesYet')}</h2>
-            <p className="text-muted-foreground text-sm mb-7 max-w-xs">{t('createFirstCourse')}</p>
+            <h2 className="text-xl font-semibold text-primary mb-2">{t('noCoursesYet')}</h2>
+            <p className="text-primary/80 text-sm mb-7 max-w-xs">{t('createFirstCourse')}</p>
             <div className="flex gap-3">
               <button
                 onClick={() => setUploadOpen(true)}
-                className="flex items-center gap-2 border border-border bg-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-muted transition-colors"
+                className="flex items-center gap-2 border border-border bg-card px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-muted transition-colors"
               >
                 <Upload size={15} />
                 Upload PDF/PPTX

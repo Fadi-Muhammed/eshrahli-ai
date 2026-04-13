@@ -12,7 +12,7 @@ import { toast } from 'sonner'
 
 function SkeletonSlide() {
   return (
-    <div className="bg-white border border-border rounded-xl p-4 animate-pulse">
+    <div className="bg-card border border-border rounded-xl p-4 animate-pulse">
       <div className="h-5 bg-muted rounded-md w-52 mb-3" />
       <div className="h-3 bg-muted rounded w-28 mb-4" />
       <div className="h-9 bg-muted rounded-lg w-full" />
@@ -69,7 +69,7 @@ function LectureCard({ group, courseId, index, isHovered, onHoverStart, onHoverE
       transition={{ duration: 0.24, delay: index * 0.04, ease: [0.22, 1, 0.36, 1] }}
       onMouseEnter={onHoverStart}
       onMouseLeave={onHoverEnd}
-      className="h-fit rounded-xl border border-border bg-white overflow-hidden"
+      className="h-fit rounded-xl border border-border bg-card overflow-hidden"
       style={{ boxShadow: isHovered ? '0 12px 24px rgba(20,40,80,0.1)' : '0 1px 4px rgba(0,0,0,0.05)' }}
     >
       <div className="w-full px-3.5 py-3 text-start flex items-start justify-between gap-3 hover:bg-muted/30 transition-colors">
@@ -82,7 +82,7 @@ function LectureCard({ group, courseId, index, isHovered, onHoverStart, onHoverE
                   autoFocus
                   value={nextName}
                   onChange={(e) => setNextName(e.target.value)}
-                  className="h-7 w-full min-w-0 rounded-md border border-input bg-white px-2 text-xs font-medium text-foreground outline-none focus:ring-2 focus:ring-ring"
+                  className="h-7 w-full min-w-0 rounded-md border border-input bg-background px-2 text-xs font-medium text-foreground outline-none focus:ring-2 focus:ring-ring"
                 />
                 <button
                   type="submit"
@@ -161,7 +161,7 @@ function LectureCard({ group, courseId, index, isHovered, onHoverStart, onHoverE
                       e.stopPropagation()
                       navigate(`/course/${courseId}/slide/${slide.id}`)
                     }}
-                    className="w-full rounded-lg border border-border/70 bg-white px-2.5 py-1.5 text-start hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer"
+                    className="w-full rounded-lg border border-border/70 bg-card px-2.5 py-1.5 text-start hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <span className="text-xs font-semibold text-primary">Slide {slide.slide_number}</span>
@@ -187,7 +187,7 @@ function LectureCard({ group, courseId, index, isHovered, onHoverStart, onHoverE
                       e.stopPropagation()
                       navigate(`/course/${courseId}/lecture/${encodeURIComponent(group.key)}`)
                     }}
-                    className="w-full rounded-lg border border-dashed border-border bg-white/70 px-2.5 py-1.5 text-xs font-medium text-muted-foreground text-start hover:text-primary hover:border-primary/40 transition-colors"
+                    className="w-full rounded-lg border border-dashed border-border bg-card/70 px-2.5 py-1.5 text-xs font-medium text-muted-foreground text-start hover:text-primary hover:border-primary/40 transition-colors"
                   >
                     +{hiddenSlidesCount} more slides
                   </button>
@@ -232,24 +232,24 @@ export default function Course() {
   return (
     <div>
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-1 text-sm text-muted-foreground mb-4 flex-wrap">
-        <Link to="/" className="hover:text-primary transition-colors">{t('dashboard')}</Link>
+      <nav className="flex items-center gap-1 text-sm text-primary/80 mb-4 flex-wrap">
+        <Link to="/" className="text-primary hover:opacity-85 transition-opacity">{t('dashboard')}</Link>
         <ChevronRight size={13} className="opacity-40" />
-        <span className="text-foreground font-medium">{displayName}</span>
+        <span className="text-primary font-medium">{displayName}</span>
       </nav>
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{displayName}</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
+          <h1 className="text-2xl font-bold text-primary">{displayName}</h1>
+          <p className="text-primary/80 text-sm mt-0.5">
             {isLoading ? '…' : `${slides?.length ?? 0} ${t('slides')}`}
           </p>
         </div>
         <motion.button
           whileTap={{ scale: 0.95 }}
           onClick={() => setUploadOpen(true)}
-          className="flex items-center gap-2 border border-border bg-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-muted transition-colors"
+          className="flex items-center gap-2 border border-border bg-card px-4 py-2 rounded-lg text-sm font-medium hover:bg-muted transition-colors"
         >
           <Upload size={15} />
           {t('upload')}
@@ -257,7 +257,7 @@ export default function Course() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-destructive rounded-lg p-4 text-sm mb-4">
+        <div className="bg-destructive/10 border border-destructive/30 text-destructive rounded-lg p-4 text-sm mb-4">
           {error.message}
         </div>
       )}
@@ -277,15 +277,15 @@ export default function Course() {
           <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center mb-5">
             <FileText size={30} className="text-primary" />
           </div>
-          <h2 className="text-lg font-semibold mb-2">{t('noSlidesYet')}</h2>
-          <p className="text-muted-foreground text-sm mb-6">{t('uploadSlides')}</p>
+          <h2 className="text-lg font-semibold text-primary mb-2">{t('noSlidesYet')}</h2>
+          <p className="text-primary/80 text-sm mb-6">{t('uploadSlides')}</p>
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() => setUploadOpen(true)}
             className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-lg text-sm font-medium hover:opacity-90"
           >
             <Upload size={15} />
-            Upload PDF or PPTX
+            Upload PPTX
           </motion.button>
         </motion.div>
       )}

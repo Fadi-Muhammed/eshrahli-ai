@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSlides, useSlide } from '../hooks/useSlides'
 import { useCourses } from '../hooks/useCourses'
@@ -7,13 +7,20 @@ import { useLanguage } from '../components/LanguageContext'
 import ExplanationDisplay from '../components/slide/ExplanationDisplay'
 import QuestionThread from '../components/slide/QuestionThread'
 import QuizPanel from '../components/slide/QuizPanel'
-import { ChevronRight, ChevronLeft, ChevronDown, GraduationCap, X } from 'lucide-react'
+import { ChevronRight, ChevronLeft, ChevronDown, ChevronUp, GraduationCap, X, Star, RefreshCw } from 'lucide-react'
 import { cn } from '../lib/utils'
 import ReactMarkdown from 'react-markdown'
+import { useFavorites } from '../hooks/useFavorites'
+import SlideStatusPills from '../components/slide/SlideStatusPills'
+
+function lectureKey(slide) {
+  return slide?.file_url || slide?.file_name || `slide-${slide?.id}`
+}
 
 // ── Slide nav sidebar item ────────────────────────────────────────────────────
 function SlideNavItem({ slide, isActive, courseId }) {
   const navigate = useNavigate()
+  const { isFavorite } = useFavorites()
   const ref = useRef(null)
   useEffect(() => {
     if (isActive) ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
@@ -31,6 +38,12 @@ function SlideNavItem({ slide, isActive, courseId }) {
       )}
     >
       <span className="block font-medium">Slide {slide.slide_number}</span>
+      {isFavorite(slide.id) && (
+        <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-semibold text-amber-800 bg-amber-100 ring-1 ring-amber-200 px-1.5 py-0.5 rounded-full dark:bg-amber-400/15 dark:text-amber-300 dark:ring-amber-400/20">
+          <Star size={10} fill="currentColor" />
+          Fav
+        </span>
+      )}
       {slide.original_text && (
         <span className="block text-xs truncate opacity-55 mt-0.5">
           {slide.original_text.slice(0, 38)}
@@ -82,7 +95,7 @@ function QuizModal({ slide, onClose }) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 16 }}
         transition={{ duration: 0.18 }}
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
+        className="bg-card rounded-2xl shadow-2xl dark:shadow-black/45 w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
           <div className="flex items-center gap-2 font-semibold text-foreground">
@@ -109,15 +122,51 @@ export default function Slide() {
   const { data: slide, isLoading } = useSlide(slideId)
   const { data: slides = [] } = useSlides(courseId)
   const [quizOpen, setQuizOpen] = useState(false)
+  const { isFavorite, toggleFavorite } = useFavorites()
   const navigate = useNavigate()
 
   const course = courses?.find((c) => c.id === courseId)
   const displayCourseName = course ? (language === 'ar' ? course.name_ar : course.name) : '…'
-  const currentIndex = slides.findIndex((s) => s.id === slideId)
-  const prevSlide = currentIndex > 0 ? slides[currentIndex - 1] : null
-  const nextSlide = currentIndex < slides.length - 1 ? slides[currentIndex + 1] : null
+  const currentLectureKey = slide ? lectureKey(slide) : null
+  const lectureSlides = useMemo(
+    () => slides.filter((s) => lectureKey(s) === currentLectureKey),
+    [slides, currentLectureKey]
+  )
+  const lectureGroups = useMemo(() => {
+    const groups = []
+    const map = new Map()
+    slides.forEach((s) => {
+      const key = lectureKey(s)
+      if (!map.has(key)) {
+        const group = { key, slides: [] }
+        map.set(key, group)
+        groups.push(group)
+      }
+      map.get(key).slides.push(s)
+    })
+    return groups
+  }, [slides])
+  const currentLectureIndex = lectureGroups.findIndex((group) => group.key === currentLectureKey)
+  const hasMultipleLectures = lectureGroups.length > 1
+  const isFirstLecture = currentLectureIndex === 0
+  const isLastLecture = currentLectureIndex === lectureGroups.length - 1
+  const previousLectureTarget = hasMultipleLectures && currentLectureIndex >= 0
+    ? (isFirstLecture
+      ? lectureGroups[lectureGroups.length - 1]?.slides?.[lectureGroups[lectureGroups.length - 1]?.slides?.length - 1]
+      : lectureGroups[currentLectureIndex - 1]?.slides?.[0])
+    : null
+  const nextLectureTarget = hasMultipleLectures && currentLectureIndex >= 0
+    ? (isLastLecture
+      ? lectureGroups[0]?.slides?.[0]
+      : lectureGroups[currentLectureIndex + 1]?.slides?.[0])
+    : null
+  const navSlides = lectureSlides.length ? lectureSlides : slides
+  const currentIndex = navSlides.findIndex((s) => s.id === slideId)
+  const prevSlide = currentIndex > 0 ? navSlides[currentIndex - 1] : null
+  const nextSlide = currentIndex < navSlides.length - 1 ? navSlides[currentIndex + 1] : null
 
   const isPDF = slide?.file_url && (slide.file_name?.endsWith('.pdf') || slide.file_url?.includes('.pdf'))
+  const starred = slide ? isFavorite(slide.id) : false
 
   // Keyboard navigation
   useEffect(() => {
@@ -154,27 +203,57 @@ export default function Slide() {
   return (
     <div className="flex flex-col" style={{ height: 'calc(100vh - 72px - 24px)' }}>
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-1 text-sm text-muted-foreground mb-3 shrink-0 flex-wrap">
-        <Link to="/" className="hover:text-primary transition-colors">{t('dashboard')}</Link>
+      <nav className="flex items-center gap-1 text-sm text-primary/80 mb-3 shrink-0 flex-wrap">
+        <Link to="/" className="text-primary hover:opacity-85 transition-opacity">{t('dashboard')}</Link>
         <ChevronRight size={13} className="opacity-40" />
-        <Link to={`/course/${courseId}`} className="hover:text-primary transition-colors">{displayCourseName}</Link>
+        <Link to={`/course/${courseId}`} className="text-primary hover:opacity-85 transition-opacity">{displayCourseName}</Link>
         <ChevronRight size={13} className="opacity-40" />
-        <span className="text-foreground font-medium">Slide {slide.slide_number}</span>
+        <span className="text-primary font-medium">Slide {slide.slide_number}</span>
       </nav>
 
       <div className="flex gap-3 flex-1 min-h-0">
 
         {/* ── Col 1: Slide navigation list ── */}
-        <div className="hidden lg:flex flex-col w-44 xl:w-52 shrink-0 bg-white rounded-xl border border-border overflow-hidden">
+        <div className="hidden lg:flex flex-col w-44 xl:w-52 shrink-0 bg-card rounded-xl border border-border overflow-hidden">
           <div className="px-3 py-2.5 border-b border-border">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              {slides.length} {t('slides')}
+              {navSlides.length} {t('slides')}
             </p>
           </div>
+          <div className="px-2 py-1.5 border-b border-border bg-card/90 backdrop-blur-sm">
+            <button
+              disabled={!previousLectureTarget}
+              onClick={() => previousLectureTarget && navigate(`/course/${courseId}/slide/${previousLectureTarget.id}`)}
+              className={cn(
+                'w-full h-8 rounded-lg border text-xs font-medium transition-colors disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-transparent inline-flex items-center justify-center gap-1',
+                isFirstLecture
+                  ? 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
+                  : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted'
+              )}
+            >
+              {isFirstLecture ? <RefreshCw size={12} /> : <ChevronUp size={13} />}
+              {isFirstLecture ? 'Last slide' : 'Previous lecture'}
+            </button>
+          </div>
           <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
-            {slides.map((s) => (
+            {navSlides.map((s) => (
               <SlideNavItem key={s.id} slide={s} isActive={s.id === slideId} courseId={courseId} />
             ))}
+          </div>
+          <div className="px-2 py-1.5 border-t border-border bg-card/90 backdrop-blur-sm">
+            <button
+              disabled={!nextLectureTarget}
+              onClick={() => nextLectureTarget && navigate(`/course/${courseId}/slide/${nextLectureTarget.id}`)}
+              className={cn(
+                'w-full h-8 rounded-lg border text-xs font-medium transition-colors disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-transparent inline-flex items-center justify-center gap-1',
+                isLastLecture
+                  ? 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
+                  : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted'
+              )}
+            >
+              {isLastLecture ? <RefreshCw size={12} /> : <ChevronDown size={13} />}
+              {isLastLecture ? 'First slide' : 'Next lecture'}
+            </button>
           </div>
         </div>
 
@@ -187,17 +266,30 @@ export default function Slide() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.18 }}
-              className="bg-white border border-border rounded-xl overflow-hidden flex-1 flex flex-col"
+              className="bg-card border border-border rounded-xl overflow-hidden flex-1 flex flex-col"
             >
               {/* Slide header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
                 <span className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-                  Slide {slide.slide_number} of {slides.length}
+                  Slide {currentIndex + 1} of {navSlides.length}
                 </span>
                 <div className="flex items-center gap-2">
                   {slide.file_name && (
                     <span className="text-xs text-muted-foreground truncate max-w-[160px]">{slide.file_name}</span>
                   )}
+                  <motion.button
+                    whileTap={{ scale: 0.94 }}
+                    onClick={() => toggleFavorite(slide.id)}
+                    className={cn(
+                      'flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium rounded-lg border transition-colors',
+                      starred
+                        ? 'border-amber-200 bg-amber-100 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300 dark:border-amber-400/30'
+                        : 'border-border text-muted-foreground hover:bg-muted'
+                    )}
+                  >
+                    <Star size={14} fill={starred ? 'currentColor' : 'none'} />
+                    {starred ? 'Favorited' : 'Favorite'}
+                  </motion.button>
                   {/* Quiz button — per spec, prominent but not a tab */}
                   <motion.button
                     whileTap={{ scale: 0.95 }}
@@ -209,6 +301,10 @@ export default function Slide() {
                     {t('quiz')}
                   </motion.button>
                 </div>
+              </div>
+
+              <div className="px-4 pt-3 pb-1 border-b border-border">
+                <SlideStatusPills slideId={slide.id} isFavorite={starred} />
               </div>
 
               {/* PDF iframe or text */}
@@ -239,19 +335,19 @@ export default function Slide() {
               whileTap={{ scale: 0.95 }}
               disabled={!prevSlide}
               onClick={() => prevSlide && navigate(`/course/${courseId}/slide/${prevSlide.id}`)}
-              className="flex items-center gap-1.5 px-3.5 py-2 text-sm border border-border rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors bg-white"
+               className="flex items-center gap-1.5 px-3.5 py-2 text-sm border border-border rounded-lg hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors bg-card"
             >
               <ChevronLeft size={15} />
               <span className="hidden sm:inline">{t('previous')}</span>
             </motion.button>
             <span className="text-sm text-muted-foreground font-medium tabular-nums">
-              {currentIndex + 1} / {slides.length}
+              {currentIndex + 1} / {navSlides.length}
             </span>
             <motion.button
               whileTap={{ scale: 0.95 }}
               disabled={!nextSlide}
               onClick={() => nextSlide && navigate(`/course/${courseId}/slide/${nextSlide.id}`)}
-              className="flex items-center gap-1.5 px-3.5 py-2 text-sm border border-border rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors bg-white"
+               className="flex items-center gap-1.5 px-3.5 py-2 text-sm border border-border rounded-lg hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors bg-card"
             >
               <span className="hidden sm:inline">{t('next')}</span>
               <ChevronRight size={15} />
@@ -260,7 +356,7 @@ export default function Slide() {
         </div>
 
         {/* ── Col 3: AI panel — Explanation + Q&A (spec layout) ── */}
-        <div className="flex flex-col w-80 xl:w-96 shrink-0 bg-white border border-border rounded-xl overflow-hidden">
+        <div className="flex flex-col w-80 xl:w-96 shrink-0 bg-card border border-border rounded-xl overflow-hidden">
           <div className="flex-1 overflow-y-auto flex flex-col">
 
             {/* Explanation section */}

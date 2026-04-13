@@ -19,7 +19,7 @@ export default function DeleteCourseDialog({ course, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-lg shadow-lg w-full max-w-sm">
+      <div className="bg-card rounded-lg shadow-lg dark:shadow-black/45 w-full max-w-sm">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="font-semibold text-foreground">{t('delete')} "{course.name}"</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
@@ -28,7 +28,7 @@ export default function DeleteCourseDialog({ course, onClose }) {
         </div>
 
         <div className="px-6 py-4">
-          <div className="flex gap-3 items-start bg-red-50 border border-red-200 rounded-md p-3 mb-4">
+          <div className="flex gap-3 items-start bg-destructive/10 border border-destructive/30 rounded-md p-3 mb-4">
             <AlertTriangle size={18} className="text-destructive mt-0.5 shrink-0" />
             <p className="text-sm text-destructive">{t('deleteConfirm')}</p>
           </div>

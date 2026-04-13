@@ -31,7 +31,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-8">
-      <div className="w-full max-w-3xl rounded-xl border border-border bg-white p-6 shadow-sm sm:p-10">
+      <div className="w-full max-w-3xl rounded-xl border border-border bg-card p-6 shadow-sm dark:shadow-black/30 sm:p-10">
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-5xl">Welcome to Eshrahli</h1>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-foreground/90 sm:text-lg">
@@ -54,7 +54,7 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full rounded-lg border border-input bg-white px-3 py-2.5 text-sm outline-none transition focus:ring-2 focus:ring-ring"
+                className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none transition focus:ring-2 focus:ring-ring"
               />
             </div>
 
@@ -66,7 +66,7 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full rounded-lg border border-input bg-white px-3 py-2.5 text-sm outline-none transition focus:ring-2 focus:ring-ring"
+                className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none transition focus:ring-2 focus:ring-ring"
               />
             </div>
 

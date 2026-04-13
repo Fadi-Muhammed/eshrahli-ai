@@ -22,7 +22,7 @@ function makeMarkdownComponents(glossary) {
 
 function TypingDots() {
   return (
-    <div className="flex items-end gap-1 px-3 py-2.5 bg-white border border-border rounded-2xl rounded-bl-none w-fit">
+    <div className="flex items-end gap-1 px-3 py-2.5 bg-card border border-border rounded-2xl rounded-bl-none w-fit">
       {[0, 1, 2].map((i) => (
         <motion.span
           key={i}
@@ -42,7 +42,7 @@ function AnswerBubble({ question }) {
   const markdownComponents = useMemo(() => makeMarkdownComponents(glossary), [glossary])
 
   return (
-    <div dir="rtl" className="bg-white border border-border px-3 py-2.5 rounded-2xl rounded-bl-none text-sm max-w-[85%] prose prose-sm">
+    <div dir="rtl" className="bg-card border border-border px-3 py-2.5 rounded-2xl rounded-bl-none text-sm max-w-[85%] prose prose-sm">
       <ReactMarkdown components={markdownComponents}>{question.answer_text}</ReactMarkdown>
     </div>
   )
@@ -136,7 +136,7 @@ export default function QuestionThread({ slide }) {
             </div>
             <div className="flex justify-start">
               {streamingAnswer ? (
-                <div dir="rtl" className="bg-white border border-border px-3 py-2.5 rounded-2xl rounded-bl-none text-sm max-w-[85%] prose prose-sm">
+                <div dir="rtl" className="bg-card border border-border px-3 py-2.5 rounded-2xl rounded-bl-none text-sm max-w-[85%] prose prose-sm">
                   <ReactMarkdown components={streamingComponents}>{streamingAnswer}</ReactMarkdown>
                   <span
                     className="inline-block w-0.5 h-3.5 ml-0.5 align-middle animate-pulse"

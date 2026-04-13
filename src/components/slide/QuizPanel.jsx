@@ -20,7 +20,7 @@ function QuizQuestion({ question, index }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className="bg-white border border-border rounded-xl overflow-hidden shadow-sm"
+      className="bg-card border border-border rounded-xl overflow-hidden shadow-sm"
     >
       {/* Question header */}
       <div className="px-4 pt-4 pb-3 border-b border-border/60">
@@ -44,9 +44,9 @@ function QuizQuestion({ question, index }) {
           if (!answered) {
             base += ' border-border hover:border-[#00C2CB]/50 hover:bg-[#00C2CB]/5 cursor-pointer'
           } else if (isCorrect) {
-            base += ' border-green-400 bg-green-50 text-green-800 cursor-default'
+            base += ' border-green-500/70 bg-green-500/10 text-green-700 dark:text-green-300 cursor-default'
           } else if (isSelected) {
-            base += ' border-red-300 bg-red-50 text-red-700 cursor-default'
+            base += ' border-red-500/60 bg-red-500/10 text-red-700 dark:text-red-300 cursor-default'
           } else {
             base += ' border-border bg-muted/30 opacity-50 cursor-default'
           }
@@ -123,7 +123,7 @@ function QuestionSkeleton({ index }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, delay: index * 0.06 }}
-      className="bg-white border border-border rounded-xl overflow-hidden shadow-sm"
+      className="bg-card border border-border rounded-xl overflow-hidden shadow-sm"
     >
       <div className="px-4 pt-4 pb-3 border-b border-border/60">
         <div className="flex items-center gap-3">
