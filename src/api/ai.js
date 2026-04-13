@@ -12,16 +12,32 @@ const client = new OpenAI({
   },
 })
 
+// ─── Retry helper ─────────────────────────────────────────────────────────────
+async function withRetry(fn, retries = 3, delayMs = 2000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn()
+    } catch (err) {
+      const is429 = err?.status === 429 || err?.message?.includes('429')
+      if (is429 && i < retries - 1) {
+        await new Promise((r) => setTimeout(r, delayMs * (i + 1)))
+        continue
+      }
+      throw err
+    }
+  }
+}
+
 // ─── Streaming helper ─────────────────────────────────────────────────────────
 async function streamChat(systemPrompt, userContent, onChunk) {
-  const stream = await client.chat.completions.create({
+  const stream = await withRetry(() => client.chat.completions.create({
     model: MODEL,
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userContent },
     ],
     stream: true,
-  })
+  }))
 
   let full = ''
   for await (const chunk of stream) {
@@ -36,13 +52,13 @@ async function streamChat(systemPrompt, userContent, onChunk) {
 
 // ─── Non-streaming helper (for JSON responses) ────────────────────────────────
 async function chat(systemPrompt, userContent) {
-  const res = await client.chat.completions.create({
+  const res = await withRetry(() => client.chat.completions.create({
     model: MODEL,
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userContent },
     ],
-  })
+  }))
   return res.choices[0]?.message?.content ?? ''
 }
 
