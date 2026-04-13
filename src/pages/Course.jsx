@@ -142,7 +142,7 @@ export default function Course() {
       )}
 
       <AnimatePresence>
-        {uploadOpen && <UploadDialog onClose={() => setUploadOpen(false)} />}
+        {uploadOpen && <UploadDialog onClose={() => setUploadOpen(false)} defaultCourseId={courseId} />}
       </AnimatePresence>
     </div>
   )

@@ -12,14 +12,14 @@ import { cn } from '../../lib/utils'
 
 const STEPS = ['select', 'uploading', 'done']
 
-export default function UploadDialog({ onClose }) {
+export default function UploadDialog({ onClose, defaultCourseId = '' }) {
   const { t } = useLanguage()
   const { user } = useAuth()
   const { data: courses = [] } = useCourses()
   const qc = useQueryClient()
   const navigate = useNavigate()
 
-  const [courseId, setCourseId] = useState('')
+  const [courseId, setCourseId] = useState(defaultCourseId)
   const [file, setFile] = useState(null)
   const [dragging, setDragging] = useState(false)
   const [step, setStep] = useState('select') // select | uploading | done
