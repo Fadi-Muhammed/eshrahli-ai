@@ -215,7 +215,7 @@ export default function Slide() {
               <div className="flex-1 overflow-hidden">
                 {isPDF && slide.file_url ? (
                   <iframe
-                    src={`${slide.file_url}#page=${slide.slide_number}`}
+                    src={`${slide.file_url}#page=${slide.slide_number}&toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
                     className="w-full h-full border-0"
                     title={`Slide ${slide.slide_number}`}
                   />
