@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { generateQuiz } from '../../api/gemini'
+import { generateQuiz } from '../../api/ai'
 import { useQuiz, useUpsertQuiz } from '../../hooks/useQuizzes'
 import { useLanguage } from '../LanguageContext'
 import { GraduationCap, CheckCircle, XCircle, RefreshCw } from 'lucide-react'

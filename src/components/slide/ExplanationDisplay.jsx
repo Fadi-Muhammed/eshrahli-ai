@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { motion, AnimatePresence } from 'framer-motion'
-import { generateExplanation } from '../../api/gemini'
+import { generateExplanation } from '../../api/ai'
 import { useExplanation, useUpsertExplanation } from '../../hooks/useExplanations'
 import { useLanguage } from '../LanguageContext'
 import { Sparkles, RefreshCw, CheckCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
-// Render **bold English terms** in teal as per spec
 const markdownComponents = {
   strong: ({ children }) => (
     <strong style={{ color: '#00C2CB', fontWeight: 700 }}>{children}</strong>
@@ -35,9 +34,10 @@ export default function ExplanationDisplay({ slide }) {
   const { data: savedExplanation } = useExplanation(slide.id)
   const upsert = useUpsertExplanation()
   const [generating, setGenerating] = useState(false)
+  const [streamingText, setStreamingText] = useState('')
   const [justSaved, setJustSaved] = useState(false)
 
-  const displayed = savedExplanation?.arabic_explanation
+  const displayed = generating ? streamingText : (savedExplanation?.arabic_explanation ?? streamingText)
 
   const handleGenerate = async () => {
     if (!slide.original_text?.trim()) {
@@ -45,14 +45,18 @@ export default function ExplanationDisplay({ slide }) {
       return
     }
     setGenerating(true)
+    setStreamingText('')
     try {
-      const result = await generateExplanation(slide.original_text)
-      // Auto-save immediately per spec
+      const result = await generateExplanation(slide.original_text, (partial) => {
+        setStreamingText(partial)
+      })
+      // Auto-save the completed result
       await upsert.mutateAsync({
         slideId: slide.id,
         courseId: slide.course_id,
         arabicExplanation: result,
       })
+      setStreamingText('')
       setJustSaved(true)
       setTimeout(() => setJustSaved(false), 2500)
     } catch (err) {
@@ -64,7 +68,6 @@ export default function ExplanationDisplay({ slide }) {
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Generate / Regenerate button */}
       <div className="flex items-center gap-2">
         <motion.button
           whileTap={{ scale: 0.96 }}
@@ -97,14 +100,7 @@ export default function ExplanationDisplay({ slide }) {
         </AnimatePresence>
       </div>
 
-      {/* Content */}
       <AnimatePresence mode="wait">
-        {generating && (
-          <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <TypingDots />
-          </motion.div>
-        )}
-
         {!generating && !displayed && (
           <motion.div
             key="empty"
@@ -117,16 +113,22 @@ export default function ExplanationDisplay({ slide }) {
           </motion.div>
         )}
 
-        {!generating && displayed && (
+        {displayed && (
           <motion.div
             key="explanation"
-            initial={{ opacity: 0, y: 6 }}
+            initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
             dir="rtl"
             className="prose prose-sm max-w-none leading-[1.9] text-foreground"
           >
             <ReactMarkdown components={markdownComponents}>{displayed}</ReactMarkdown>
+            {generating && (
+              <span
+                className="inline-block w-0.5 h-4 ml-0.5 align-middle animate-pulse"
+                style={{ background: '#00C2CB' }}
+              />
+            )}
           </motion.div>
         )}
       </AnimatePresence>

@@ -1,19 +1,28 @@
 import { useState, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { answerQuestion } from '../../api/gemini'
+import { answerQuestion } from '../../api/ai'
 import { useQuestions, useCreateQuestion } from '../../hooks/useQuestions'
 import { useLanguage } from '../LanguageContext'
 import { Send, MessageCircle } from 'lucide-react'
 import { toast } from 'sonner'
+import { motion } from 'framer-motion'
+
+const markdownComponents = {
+  strong: ({ children }) => (
+    <strong style={{ color: '#00C2CB', fontWeight: 700 }}>{children}</strong>
+  ),
+}
 
 function TypingDots() {
   return (
-    <div className="flex items-end gap-1 px-3 py-2 bg-white border border-border rounded-2xl rounded-bl-none w-fit max-w-[80%]">
+    <div className="flex items-end gap-1 px-3 py-2.5 bg-white border border-border rounded-2xl rounded-bl-none w-fit">
       {[0, 1, 2].map((i) => (
-        <span
+        <motion.span
           key={i}
-          className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce"
-          style={{ animationDelay: `${i * 0.15}s` }}
+          className="w-1.5 h-1.5 rounded-full"
+          style={{ background: '#00C2CB' }}
+          animate={{ y: [0, -4, 0] }}
+          transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.15 }}
         />
       ))}
     </div>
@@ -26,26 +35,38 @@ export default function QuestionThread({ slide }) {
   const createQuestion = useCreateQuestion()
   const [input, setInput] = useState('')
   const [answering, setAnswering] = useState(false)
+  const [streamingAnswer, setStreamingAnswer] = useState('')
+  const [pendingQuestion, setPendingQuestion] = useState('')
   const bottomRef = useRef(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [questions, answering])
+  }, [questions, answering, streamingAnswer])
 
   const handleSend = async () => {
     const q = input.trim()
     if (!q || answering) return
     setInput('')
+    setPendingQuestion(q)
     setAnswering(true)
+    setStreamingAnswer('')
     try {
-      const answer = await answerQuestion(slide.original_text ?? '', q, questions)
+      const answer = await answerQuestion(
+        slide.original_text ?? '',
+        q,
+        questions,
+        (partial) => setStreamingAnswer(partial)
+      )
       await createQuestion.mutateAsync({
         slideId: slide.id,
         questionText: q,
         answerText: answer,
       })
+      setStreamingAnswer('')
+      setPendingQuestion('')
     } catch (err) {
       toast.error(err.message ?? 'Failed to get answer')
+      setPendingQuestion('')
     } finally {
       setAnswering(false)
     }
@@ -60,44 +81,49 @@ export default function QuestionThread({ slide }) {
 
   return (
     <div className="flex flex-col h-full gap-3">
-      {/* Messages area */}
       <div className="flex-1 overflow-y-auto flex flex-col gap-3 min-h-0">
         {questions.length === 0 && !answering && (
-          <div className="text-center py-10 text-muted-foreground text-sm">
-            <MessageCircle size={24} className="mx-auto mb-2 opacity-40" />
-            <p>Ask anything about this slide.</p>
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            <MessageCircle size={22} className="mx-auto mb-2 opacity-30" />
+            <p>Ask a follow-up question about this slide.</p>
           </div>
         )}
 
         {questions.map((q) => (
           <div key={q.id} className="flex flex-col gap-2">
-            {/* Question bubble (student — right) */}
             <div className="flex justify-end">
-              <div className="bg-primary text-primary-foreground px-3 py-2 rounded-2xl rounded-br-none text-sm max-w-[80%]">
+              <div className="bg-primary text-primary-foreground px-3 py-2 rounded-2xl rounded-br-none text-sm max-w-[85%]">
                 {q.question_text}
               </div>
             </div>
-            {/* Answer bubble (tutor — left) */}
             <div className="flex justify-start">
-              <div
-                dir="rtl"
-                className="bg-white border border-border px-3 py-2 rounded-2xl rounded-bl-none text-sm max-w-[80%] prose prose-sm"
-              >
-                <ReactMarkdown components={{ strong: ({ children }) => <strong style={{ color: '#00C2CB', fontWeight: 700 }}>{children}</strong> }}>{q.answer_text}</ReactMarkdown>
+              <div dir="rtl" className="bg-white border border-border px-3 py-2.5 rounded-2xl rounded-bl-none text-sm max-w-[85%] prose prose-sm">
+                <ReactMarkdown components={markdownComponents}>{q.answer_text}</ReactMarkdown>
               </div>
             </div>
           </div>
         ))}
 
+        {/* Streaming in-progress answer */}
         {answering && (
           <div className="flex flex-col gap-2">
             <div className="flex justify-end">
-              <div className="bg-primary text-primary-foreground px-3 py-2 rounded-2xl rounded-br-none text-sm max-w-[80%] opacity-60">
-                {input || '...'}
+              <div className="bg-primary text-primary-foreground px-3 py-2 rounded-2xl rounded-br-none text-sm max-w-[85%]">
+                {pendingQuestion}
               </div>
             </div>
             <div className="flex justify-start">
-              <TypingDots />
+              {streamingAnswer ? (
+                <div dir="rtl" className="bg-white border border-border px-3 py-2.5 rounded-2xl rounded-bl-none text-sm max-w-[85%] prose prose-sm">
+                  <ReactMarkdown components={markdownComponents}>{streamingAnswer}</ReactMarkdown>
+                  <span
+                    className="inline-block w-0.5 h-3.5 ml-0.5 align-middle animate-pulse"
+                    style={{ background: '#00C2CB' }}
+                  />
+                </div>
+              ) : (
+                <TypingDots />
+              )}
             </div>
           </div>
         )}
@@ -105,25 +131,27 @@ export default function QuestionThread({ slide }) {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
-      <div className="flex items-end gap-2 border-t border-border pt-3">
+      <div className="flex items-end gap-2 border-t border-border pt-3 shrink-0">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={t('askQuestion')}
           rows={2}
-          className="flex-1 resize-none border border-input rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+          disabled={answering}
+          className="flex-1 resize-none border border-input rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
           dir="auto"
         />
-        <button
+        <motion.button
+          whileTap={{ scale: 0.92 }}
           onClick={handleSend}
           disabled={!input.trim() || answering}
-          className="p-2.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-40 shrink-0"
+          className="p-2.5 rounded-lg text-white hover:opacity-90 disabled:opacity-40 shrink-0 transition-opacity"
+          style={{ background: '#00C2CB' }}
           aria-label={t('send')}
         >
           <Send size={16} />
-        </button>
+        </motion.button>
       </div>
     </div>
   )
