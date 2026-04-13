@@ -1,0 +1,77 @@
+import { useState } from 'react'
+import { useUpdateCourse } from '../../hooks/useCourses'
+import { useLanguage } from '../LanguageContext'
+import { toast } from 'sonner'
+import { X } from 'lucide-react'
+
+export default function RenameCourseDialog({ course, onClose }) {
+  const { t } = useLanguage()
+  const updateCourse = useUpdateCourse()
+  const [name, setName] = useState(course.name)
+  const [nameAr, setNameAr] = useState(course.name_ar)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!name.trim() || !nameAr.trim()) return
+    try {
+      await updateCourse.mutateAsync({ id: course.id, name: name.trim(), name_ar: nameAr.trim() })
+      toast.success('Course renamed!')
+      onClose()
+    } catch (err) {
+      toast.error(err.message ?? 'Failed to rename course')
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-lg shadow-lg w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h2 className="font-semibold text-foreground">{t('rename')}</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-6 py-4 flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium">{t('courseName')}</label>
+            <input
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="border border-input rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium">{t('courseNameAr')}</label>
+            <input
+              type="text"
+              required
+              dir="rtl"
+              value={nameAr}
+              onChange={(e) => setNameAr(e.target.value)}
+              className="border border-input rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm rounded-md border border-border hover:bg-muted">
+              {t('cancel')}
+            </button>
+            <button
+              type="submit"
+              disabled={updateCourse.isPending}
+              className="px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-60 flex items-center gap-2"
+            >
+              {updateCourse.isPending && (
+                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              )}
+              {t('rename')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
