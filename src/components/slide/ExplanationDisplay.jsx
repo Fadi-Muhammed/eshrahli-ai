@@ -1,17 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { motion, AnimatePresence } from 'framer-motion'
-import { generateExplanation } from '../../api/ai'
+import { generateExplanation, generateGlossary } from '../../api/ai'
 import { useExplanation, useUpsertExplanation } from '../../hooks/useExplanations'
 import { useLanguage } from '../LanguageContext'
 import { Sparkles, RefreshCw, CheckCircle } from 'lucide-react'
 import { toast } from 'sonner'
-
-const markdownComponents = {
-  strong: ({ children }) => (
-    <strong style={{ color: '#00C2CB', fontWeight: 700 }}>{children}</strong>
-  ),
-}
+import { processChildren } from './ArabicWordTooltip'
 
 function TypingDots() {
   return (
@@ -36,8 +31,21 @@ export default function ExplanationDisplay({ slide }) {
   const [generating, setGenerating] = useState(false)
   const [streamingText, setStreamingText] = useState('')
   const [justSaved, setJustSaved] = useState(false)
+  const [glossary, setGlossary] = useState({})
+  const [loadingGlossary, setLoadingGlossary] = useState(false)
 
   const displayed = generating ? streamingText : (savedExplanation?.arabic_explanation ?? streamingText)
+
+  // Load glossary whenever saved explanation changes (e.g. on first mount)
+  useEffect(() => {
+    if (savedExplanation?.arabic_explanation) {
+      setLoadingGlossary(true)
+      generateGlossary(savedExplanation.arabic_explanation)
+        .then(setGlossary)
+        .catch(() => {})
+        .finally(() => setLoadingGlossary(false))
+    }
+  }, [savedExplanation?.arabic_explanation])
 
   const handleGenerate = async () => {
     if (!slide.original_text?.trim()) {
@@ -46,11 +54,11 @@ export default function ExplanationDisplay({ slide }) {
     }
     setGenerating(true)
     setStreamingText('')
+    setGlossary({})
     try {
       const result = await generateExplanation(slide.original_text, (partial) => {
         setStreamingText(partial)
       })
-      // Auto-save the completed result
       await upsert.mutateAsync({
         slideId: slide.id,
         courseId: slide.course_id,
@@ -59,6 +67,12 @@ export default function ExplanationDisplay({ slide }) {
       setStreamingText('')
       setJustSaved(true)
       setTimeout(() => setJustSaved(false), 2500)
+      // Build glossary in background after save
+      setLoadingGlossary(true)
+      generateGlossary(result)
+        .then(setGlossary)
+        .catch(() => {})
+        .finally(() => setLoadingGlossary(false))
     } catch (err) {
       toast.error(err.message ?? 'Generation failed. Try again.')
     } finally {
@@ -66,9 +80,24 @@ export default function ExplanationDisplay({ slide }) {
     }
   }
 
+  // Build markdown components with glossary tooltips
+  const markdownComponents = useMemo(() => ({
+    strong: ({ children }) => (
+      <strong style={{ color: '#00C2CB', fontWeight: 700 }}>
+        {processChildren(children, glossary)}
+      </strong>
+    ),
+    p: ({ children }) => (
+      <p>{processChildren(children, glossary)}</p>
+    ),
+    li: ({ children }) => (
+      <li>{processChildren(children, glossary)}</li>
+    ),
+  }), [glossary])
+
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <motion.button
           whileTap={{ scale: 0.96 }}
           onClick={handleGenerate}
@@ -98,6 +127,13 @@ export default function ExplanationDisplay({ slide }) {
             </motion.span>
           )}
         </AnimatePresence>
+
+        {loadingGlossary && !generating && (
+          <span className="text-xs text-muted-foreground flex items-center gap-1">
+            <span className="w-2.5 h-2.5 border border-[#00C2CB] border-t-transparent rounded-full animate-spin inline-block" />
+            Loading tooltips…
+          </span>
+        )}
       </div>
 
       <AnimatePresence mode="wait">
@@ -110,6 +146,12 @@ export default function ExplanationDisplay({ slide }) {
           >
             <Sparkles size={22} className="mx-auto mb-2 opacity-30" />
             <p>Generate an explanation to study this slide in Arabic.</p>
+          </motion.div>
+        )}
+
+        {generating && !streamingText && (
+          <motion.div key="dots" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <TypingDots />
           </motion.div>
         )}
 

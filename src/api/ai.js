@@ -70,7 +70,15 @@ export async function generateExplanation(slideText, onChunk) {
 }
 
 // ─── Q&A ──────────────────────────────────────────────────────────────────────
-const QA_SYSTEM_PROMPT = `You are a bilingual academic tutor fluent in Arabic and English. You answer student follow-up questions about university lecture slides. Always respond in clear, natural Arabic. Every key English academic or technical term must remain in English and be wrapped in bold formatting (**term**). Do not translate technical terms into Arabic. Be concise but thorough.`
+const QA_SYSTEM_PROMPT = `You are a bilingual academic tutor fluent in Arabic and English. Answer student follow-up questions about university lecture slides in clear, natural Arabic.
+
+Formatting rules:
+- Always start with a bold direct answer on its own line: **الجواب:** one sentence.
+- If the answer is a single fact, follow with 1–2 sentences of context. Stop there.
+- If the answer has multiple parts or steps, follow the direct answer with a short numbered list (max 4 items).
+- Never exceed 5 lines total.
+- Every key English academic or technical term must remain in English wrapped in **bold**.
+- Do not translate technical terms into Arabic.`
 
 export async function answerQuestion(slideText, question, history = [], onChunk) {
   const historyStr = history
@@ -84,6 +92,19 @@ export async function answerQuestion(slideText, question, history = [], onChunk)
 
 // ─── Quiz (non-streaming — needs full JSON) ───────────────────────────────────
 const QUIZ_SYSTEM_PROMPT = `You are a bilingual academic tutor. Generate exactly 4 multiple-choice questions in Arabic based on the provided lecture slide content. Return ONLY valid JSON with no extra text, markdown, or code fences. Format: { "questions": [{ "question": "...", "options": ["...", "...", "...", "..."], "correct": 0, "explanation": "..." }] }. Questions and options must be in Arabic. Keep English technical terms bold in explanations.`
+
+// ─── Glossary (Arabic word → English translation) ────────────────────────────
+const GLOSSARY_SYSTEM_PROMPT = `You are a language assistant. Given Arabic text, extract up to 20 meaningful Arabic words (nouns, verbs, key adjectives — skip particles, prepositions, and very common words like هذا، في، من، على، أن، كان، هو). For each word as it appears in the text, provide a concise English translation. Return ONLY valid JSON with no extra text or code fences. Format: { "arabicWord": "english translation", ... }`
+
+export async function generateGlossary(text) {
+  const raw = await chat(GLOSSARY_SYSTEM_PROMPT, text)
+  const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+  try {
+    return JSON.parse(cleaned)
+  } catch {
+    return {}
+  }
+}
 
 export async function generateQuiz(slideText) {
   const raw = await chat(QUIZ_SYSTEM_PROMPT, slideText)
