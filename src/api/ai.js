@@ -10,6 +10,8 @@ const client = new OpenRouter({
 // onChunk(partialText) is called on every new token so the UI can render live
 async function streamChat(systemPrompt, userContent, onChunk) {
   const stream = await client.chat.send({
+    httpReferer: 'https://eshrahli.ai',
+    appTitle: 'Eshrahli AI',
     chatRequest: {
       model: MODEL,
       messages: [
@@ -34,6 +36,8 @@ async function streamChat(systemPrompt, userContent, onChunk) {
 // ─── Non-streaming helper (for JSON responses) ────────────────────────────────
 async function chat(systemPrompt, userContent) {
   const res = await client.chat.send({
+    httpReferer: 'https://eshrahli.ai',
+    appTitle: 'Eshrahli AI',
     chatRequest: {
       model: MODEL,
       messages: [
