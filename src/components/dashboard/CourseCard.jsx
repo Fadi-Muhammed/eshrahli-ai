@@ -39,7 +39,7 @@ export default function CourseCard({ course, slideCount = 0 }) {
         whileTap={{ scale: 0.98 }}
         transition={{ duration: 0.15 }}
         onClick={() => navigate(`/course/${course.id}`)}
-        className="bg-white border border-border rounded-xl overflow-hidden cursor-pointer group relative"
+        className={`bg-white border border-border rounded-xl cursor-pointer group relative overflow-visible ${menuOpen ? 'z-50' : 'z-0'}`}
         style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
       >
         <div className={`h-1.5 ${stripColor}`} />
