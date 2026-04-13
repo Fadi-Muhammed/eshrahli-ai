@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
 
-const MODEL = 'x-ai/grok-4.1-fast'
+const MODEL = 'openai/gpt-4o-mini'
 
 const client = new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
