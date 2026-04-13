@@ -1,16 +1,23 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { answerQuestion } from '../../api/ai'
+import { answerQuestion, generateGlossary } from '../../api/ai'
 import { useQuestions, useCreateQuestion } from '../../hooks/useQuestions'
 import { useLanguage } from '../LanguageContext'
 import { Send, MessageCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { motion } from 'framer-motion'
+import { processChildren } from './ArabicWordTooltip'
 
-const markdownComponents = {
-  strong: ({ children }) => (
-    <strong style={{ color: '#00C2CB', fontWeight: 700 }}>{children}</strong>
-  ),
+function makeMarkdownComponents(glossary) {
+  return {
+    strong: ({ children }) => (
+      <strong style={{ color: '#00C2CB', fontWeight: 700 }}>
+        {processChildren(children, glossary)}
+      </strong>
+    ),
+    p: ({ children }) => <p>{processChildren(children, glossary)}</p>,
+    li: ({ children }) => <li>{processChildren(children, glossary)}</li>,
+  }
 }
 
 function TypingDots() {
@@ -25,6 +32,25 @@ function TypingDots() {
           transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.15 }}
         />
       ))}
+    </div>
+  )
+}
+
+// Per-answer glossary wrapper
+function AnswerBubble({ answerText }) {
+  const [glossary, setGlossary] = useState({})
+
+  useEffect(() => {
+    if (answerText) {
+      generateGlossary(answerText).then(setGlossary).catch(() => {})
+    }
+  }, [answerText])
+
+  const markdownComponents = useMemo(() => makeMarkdownComponents(glossary), [glossary])
+
+  return (
+    <div dir="rtl" className="bg-white border border-border px-3 py-2.5 rounded-2xl rounded-bl-none text-sm max-w-[85%] prose prose-sm">
+      <ReactMarkdown components={markdownComponents}>{answerText}</ReactMarkdown>
     </div>
   )
 }
@@ -79,6 +105,9 @@ export default function QuestionThread({ slide }) {
     }
   }
 
+  // Streaming answer uses simple markdown components (no glossary yet — it's still being typed)
+  const streamingComponents = useMemo(() => makeMarkdownComponents({}), [])
+
   return (
     <div className="flex flex-col h-full gap-3">
       <div className="flex-1 overflow-y-auto flex flex-col gap-3 min-h-0">
@@ -97,14 +126,11 @@ export default function QuestionThread({ slide }) {
               </div>
             </div>
             <div className="flex justify-start">
-              <div dir="rtl" className="bg-white border border-border px-3 py-2.5 rounded-2xl rounded-bl-none text-sm max-w-[85%] prose prose-sm">
-                <ReactMarkdown components={markdownComponents}>{q.answer_text}</ReactMarkdown>
-              </div>
+              <AnswerBubble answerText={q.answer_text} />
             </div>
           </div>
         ))}
 
-        {/* Streaming in-progress answer */}
         {answering && (
           <div className="flex flex-col gap-2">
             <div className="flex justify-end">
@@ -115,7 +141,7 @@ export default function QuestionThread({ slide }) {
             <div className="flex justify-start">
               {streamingAnswer ? (
                 <div dir="rtl" className="bg-white border border-border px-3 py-2.5 rounded-2xl rounded-bl-none text-sm max-w-[85%] prose prose-sm">
-                  <ReactMarkdown components={markdownComponents}>{streamingAnswer}</ReactMarkdown>
+                  <ReactMarkdown components={streamingComponents}>{streamingAnswer}</ReactMarkdown>
                   <span
                     className="inline-block w-0.5 h-3.5 ml-0.5 align-middle animate-pulse"
                     style={{ background: '#00C2CB' }}

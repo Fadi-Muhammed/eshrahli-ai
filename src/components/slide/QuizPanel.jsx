@@ -1,13 +1,27 @@
-import { useState } from 'react'
-import { generateQuiz } from '../../api/ai'
+import { useState, useMemo } from 'react'
+import ReactMarkdown from 'react-markdown'
+import { generateQuiz, generateGlossary } from '../../api/ai'
 import { useQuiz, useUpsertQuiz } from '../../hooks/useQuizzes'
 import { useLanguage } from '../LanguageContext'
 import { GraduationCap, CheckCircle, XCircle, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
+import { processChildren } from './ArabicWordTooltip'
 
-function QuizQuestion({ question, index }) {
+function makeMarkdownComponents(glossary) {
+  return {
+    strong: ({ children }) => (
+      <strong style={{ color: '#00C2CB', fontWeight: 700 }}>
+        {processChildren(children, glossary)}
+      </strong>
+    ),
+    p: ({ children }) => <span>{processChildren(children, glossary)}</span>,
+  }
+}
+
+function QuizQuestion({ question, index, glossary }) {
   const [selected, setSelected] = useState(null)
   const answered = selected !== null
+  const markdownComponents = useMemo(() => makeMarkdownComponents(glossary), [glossary])
 
   return (
     <div className="bg-white border border-border rounded-lg p-4">
@@ -45,7 +59,10 @@ function QuizQuestion({ question, index }) {
 
       {answered && question.explanation && (
         <div className="mt-3 bg-secondary rounded-md px-3 py-2 text-sm text-foreground" dir="rtl">
-          💡 {question.explanation}
+          <span className="me-1">💡</span>
+          <ReactMarkdown components={markdownComponents}>
+            {question.explanation}
+          </ReactMarkdown>
         </div>
       )}
     </div>
@@ -59,6 +76,22 @@ export default function QuizPanel({ slide }) {
 
   const [questions, setQuestions] = useState(savedQuiz?.questions ?? null)
   const [generating, setGenerating] = useState(false)
+  const [glossary, setGlossary] = useState({})
+
+  const displayed = questions ?? savedQuiz?.questions
+
+  // Build glossary from all explanations combined
+  const buildGlossary = (qs) => {
+    const combined = qs.map((q) => q.explanation ?? '').join(' ')
+    if (combined.trim()) {
+      generateGlossary(combined).then(setGlossary).catch(() => {})
+    }
+  }
+
+  // Load glossary for saved quiz on mount
+  useMemo(() => {
+    if (savedQuiz?.questions) buildGlossary(savedQuiz.questions)
+  }, [savedQuiz?.questions])
 
   const handleGenerate = async () => {
     if (!slide.original_text) {
@@ -66,19 +99,19 @@ export default function QuizPanel({ slide }) {
       return
     }
     setGenerating(true)
+    setGlossary({})
     try {
       const qs = await generateQuiz(slide.original_text)
       setQuestions(qs)
       await upsertQuiz.mutateAsync({ slideId: slide.id, questions: qs })
       toast.success('Quiz generated!')
+      buildGlossary(qs)
     } catch (err) {
       toast.error(err.message ?? 'Failed to generate quiz')
     } finally {
       setGenerating(false)
     }
   }
-
-  const displayed = questions ?? savedQuiz?.questions
 
   return (
     <div className="flex flex-col gap-3 h-full">
@@ -119,7 +152,7 @@ export default function QuizPanel({ slide }) {
         )}
 
         {!generating && displayed?.map((q, i) => (
-          <QuizQuestion key={i} question={q} index={i} />
+          <QuizQuestion key={i} question={q} index={i} glossary={glossary} />
         ))}
       </div>
     </div>
