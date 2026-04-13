@@ -1,6 +1,6 @@
 import { OpenRouter } from '@openrouter/sdk'
 
-const MODEL = 'google/gemma-4-31b-it:free'
+const MODEL = 'meta-llama/llama-3.1-8b-instruct:free'
 
 const client = new OpenRouter({
   apiKey: import.meta.env.VITE_OPENROUTER_API_KEY,
