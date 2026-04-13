@@ -10,12 +10,14 @@ const client = new OpenRouter({
 // onChunk(partialText) is called on every new token so the UI can render live
 async function streamChat(systemPrompt, userContent, onChunk) {
   const stream = await client.chat.send({
-    model: MODEL,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userContent },
-    ],
-    stream: true,
+    chatRequest: {
+      model: MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent },
+      ],
+      stream: true,
+    },
   })
 
   let full = ''
@@ -32,11 +34,13 @@ async function streamChat(systemPrompt, userContent, onChunk) {
 // ─── Non-streaming helper (for JSON responses) ────────────────────────────────
 async function chat(systemPrompt, userContent) {
   const res = await client.chat.send({
-    model: MODEL,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userContent },
-    ],
+    chatRequest: {
+      model: MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent },
+      ],
+    },
   })
   return res.choices[0]?.message?.content ?? ''
 }
