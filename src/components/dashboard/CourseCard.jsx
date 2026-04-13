@@ -7,14 +7,14 @@ import RenameCourseDialog from './RenameCourseDialog'
 import DeleteCourseDialog from './DeleteCourseDialog'
 
 const COURSE_COLORS = [
-  ['bg-blue-500', 'bg-blue-50'],
-  ['bg-violet-500', 'bg-violet-50'],
-  ['bg-emerald-500', 'bg-emerald-50'],
-  ['bg-orange-500', 'bg-orange-50'],
-  ['bg-pink-500', 'bg-pink-50'],
-  ['bg-cyan-500', 'bg-cyan-50'],
-  ['bg-rose-500', 'bg-rose-50'],
-  ['bg-indigo-500', 'bg-indigo-50'],
+  ['bg-blue-500', 'bg-blue-50 dark:bg-blue-500/32', 'text-blue-600 dark:text-blue-200'],
+  ['bg-violet-500', 'bg-violet-50 dark:bg-violet-500/32', 'text-violet-600 dark:text-violet-200'],
+  ['bg-emerald-500', 'bg-emerald-50 dark:bg-emerald-500/32', 'text-emerald-600 dark:text-emerald-200'],
+  ['bg-orange-500', 'bg-orange-50 dark:bg-orange-500/32', 'text-orange-600 dark:text-orange-200'],
+  ['bg-pink-500', 'bg-pink-50 dark:bg-pink-500/32', 'text-pink-600 dark:text-pink-200'],
+  ['bg-cyan-500', 'bg-cyan-50 dark:bg-cyan-500/32', 'text-cyan-600 dark:text-cyan-200'],
+  ['bg-rose-500', 'bg-rose-50 dark:bg-rose-500/32', 'text-rose-600 dark:text-rose-200'],
+  ['bg-indigo-500', 'bg-indigo-50 dark:bg-indigo-500/32', 'text-indigo-600 dark:text-indigo-200'],
 ]
 
 function getCourseColor(id) {
@@ -30,7 +30,7 @@ export default function CourseCard({ course, slideCount = 0 }) {
   const [deleting, setDeleting] = useState(false)
 
   const displayName = language === 'ar' ? course.name_ar : course.name
-  const [stripColor, bgColor] = getCourseColor(course.id)
+  const [stripColor, bgColor, letterColor] = getCourseColor(course.id)
 
   return (
     <>
@@ -39,7 +39,7 @@ export default function CourseCard({ course, slideCount = 0 }) {
         whileTap={{ scale: 0.98 }}
         transition={{ duration: 0.15 }}
         onClick={() => navigate(`/course/${course.id}`)}
-        className="bg-white border border-border rounded-xl overflow-hidden cursor-pointer group relative"
+        className={`bg-card border border-border rounded-xl cursor-pointer group relative overflow-visible ${menuOpen ? 'z-50' : 'z-0'}`}
         style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
       >
         <div className={`h-1.5 ${stripColor}`} />
@@ -47,8 +47,8 @@ export default function CourseCard({ course, slideCount = 0 }) {
         <div className="p-5">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-3 min-w-0">
-              <div className={`w-10 h-10 rounded-xl ${bgColor} flex items-center justify-center shrink-0`}>
-                <span className={`text-sm font-bold ${stripColor.replace('bg-', 'text-')}`}>
+              <div className={`w-10 h-10 rounded-xl ${bgColor} ring-1 ring-black/5 dark:ring-black/30 shadow-sm flex items-center justify-center shrink-0`}>
+                <span className={`text-sm font-bold ${letterColor}`}>
                   {displayName?.[0]?.toUpperCase()}
                 </span>
               </div>
@@ -80,7 +80,7 @@ export default function CourseCard({ course, slideCount = 0 }) {
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.92, y: -4 }}
                       transition={{ duration: 0.12 }}
-                      className="absolute end-0 z-20 mt-1 w-36 bg-white border border-border rounded-xl shadow-lg py-1 overflow-hidden"
+                      className="absolute end-0 z-20 mt-1 w-36 bg-card border border-border rounded-xl shadow-lg dark:shadow-black/35 py-1 overflow-hidden"
                     >
                       <button
                         className="w-full text-start px-3 py-2.5 text-sm hover:bg-muted flex items-center gap-2.5 transition-colors"
@@ -90,7 +90,7 @@ export default function CourseCard({ course, slideCount = 0 }) {
                         Rename
                       </button>
                       <button
-                        className="w-full text-start px-3 py-2.5 text-sm hover:bg-red-50 text-destructive flex items-center gap-2.5 transition-colors"
+                        className="w-full text-start px-3 py-2.5 text-sm hover:bg-destructive/10 text-destructive flex items-center gap-2.5 transition-colors"
                         onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setDeleting(true) }}
                       >
                         <Trash2 size={13} />

@@ -23,7 +23,7 @@ export default function CreateCourseDialog({ onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-lg shadow-lg w-full max-w-md">
+      <div className="bg-card rounded-lg shadow-lg dark:shadow-black/45 w-full max-w-md">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="font-semibold text-foreground">{t('newCourse')}</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
@@ -42,7 +42,7 @@ export default function CreateCourseDialog({ onClose }) {
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Data Structures / هياكل البيانات"
               dir="auto"
-              className="border border-input rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+               className="border border-input bg-background rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
 

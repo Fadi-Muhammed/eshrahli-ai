@@ -11,7 +11,9 @@ export function useSlides(courseId) {
         .from('slides')
         .select('*')
         .eq('course_id', courseId)
+        .order('file_name', { ascending: true })
         .order('slide_number', { ascending: true })
+        .order('created_at', { ascending: true })
       if (error) throw error
       return data
     },
@@ -33,6 +35,22 @@ export function useSlide(slideId) {
       return data
     },
     enabled: !!user && !!slideId,
+  })
+}
+
+export function useAllSlides() {
+  const { user } = useAuth()
+  return useQuery({
+    queryKey: ['slides', 'all', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('slides')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data
+    },
+    enabled: !!user,
   })
 }
 
@@ -62,5 +80,30 @@ export function useDeleteSlide() {
       return courseId
     },
     onSuccess: (courseId) => qc.invalidateQueries({ queryKey: ['slides', courseId] }),
+  })
+}
+
+export function useRenameLecture() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ courseId, slideIds, name }) => {
+      const cleanedName = name?.trim()
+      if (!courseId || !Array.isArray(slideIds) || slideIds.length === 0 || !cleanedName) {
+        throw new Error('Invalid lecture rename data')
+      }
+
+      const { error } = await supabase
+        .from('slides')
+        .update({ file_name: cleanedName })
+        .in('id', slideIds)
+
+      if (error) throw error
+      return { courseId }
+    },
+    onSuccess: ({ courseId }) => {
+      qc.invalidateQueries({ queryKey: ['slides', courseId] })
+      qc.invalidateQueries({ queryKey: ['slides', 'all'] })
+      qc.invalidateQueries({ queryKey: ['slide'] })
+    },
   })
 }

@@ -1,14 +1,13 @@
-import * as pdfjsLib from 'pdfjs-dist'
 import JSZip from 'jszip'
 import { supabase } from './supabaseClient'
+import { convertPptxFileToPdfFile } from '../lib/pptxToPdf'
+import * as pdfjsLib from 'pdfjs-dist'
 
-// Point pdf.js worker at its bundled asset
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.mjs',
   import.meta.url
 ).href
 
-// ─── PDF ─────────────────────────────────────────────────────────────────────
 async function extractPDF(file) {
   const arrayBuffer = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
@@ -70,22 +69,44 @@ export async function extractAndCreateSlides({
   userId,
   onProgress,
 }) {
-  const isPDF = file.type === 'application/pdf' || file.name.endsWith('.pdf')
+  console.info('[Extraction] Started', {
+    fileName: file?.name,
+    fileType: file?.type,
+    fileSize: file?.size,
+    courseId,
+    userId,
+  })
+
+  const lowerName = file.name.toLowerCase()
+  const isPDF = file.type === 'application/pdf' || lowerName.endsWith('.pdf')
   const isPPTX =
     file.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
-    file.name.endsWith('.pptx')
+    lowerName.endsWith('.pptx')
 
-  if (!isPDF && !isPPTX) throw new Error('Only PDF and PPTX files are supported.')
+  if (!isPPTX && !isPDF) throw new Error('Only PPTX or PDF files are supported.')
 
   onProgress?.({ step: 'extracting', percent: 10 })
-  const pages = isPDF ? await extractPDF(file) : await extractPPTX(file)
+  console.info('[Extraction] Extracting slide text', { isPPTX, isPDF })
+  const pages = isPPTX ? await extractPPTX(file) : await extractPDF(file)
 
   if (pages.length === 0) throw new Error('No pages found in the file.')
 
-  onProgress?.({ step: 'uploading', percent: 40 })
-  const { path, url } = await uploadFile(file, userId)
+  let uploadableFile = file
+  if (isPPTX) {
+    onProgress?.({ step: 'converting', percent: 35 })
+    console.info('[Extraction] Converting PPTX to PDF')
+    uploadableFile = await convertPptxFileToPdfFile(file)
+  }
 
-  onProgress?.({ step: 'saving', percent: 60 })
+  onProgress?.({ step: 'uploading', percent: 60 })
+  console.info('[Extraction] Uploading source/conversion output', {
+    uploadFileName: uploadableFile?.name,
+    uploadFileType: uploadableFile?.type,
+    uploadFileSize: uploadableFile?.size,
+  })
+  const { url } = await uploadFile(uploadableFile, userId)
+
+  onProgress?.({ step: 'saving', percent: 80 })
 
   // Batch insert all slides
   const rows = pages.map((text, i) => ({
@@ -99,6 +120,11 @@ export async function extractAndCreateSlides({
 
   const { data, error } = await supabase.from('slides').insert(rows).select()
   if (error) throw error
+
+  console.info('[Extraction] Completed', {
+    slidesInserted: data?.length,
+    fileUrl: url,
+  })
 
   onProgress?.({ step: 'done', percent: 100 })
   return data

@@ -30,55 +30,58 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-secondary flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-md w-full max-w-sm p-8 border border-border">
-        {/* Logo / Brand */}
-        <div className="mb-6 text-center">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary mb-3">
-            <span className="text-white font-bold text-xl">B</span>
-          </div>
-          <h1 className="text-2xl font-bold text-foreground">Bridge AI</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            {mode === 'signin' ? 'Sign in to your account' : 'Create an account'}
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-8">
+      <div className="w-full max-w-3xl rounded-xl border border-border bg-card p-6 shadow-sm dark:shadow-black/30 sm:p-10">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-5xl">Welcome to Eshrahli</h1>
+          <p className="mt-4 max-w-2xl text-base leading-relaxed text-foreground/90 sm:text-lg">
+            Your centralized learning assistant for understanding university material in Arabic while keeping essential English technical terms clear and accurate.
+          </p>
+          <p className="mt-2 text-base text-foreground/90 sm:text-lg">
+            {mode === 'signin'
+              ? 'Sign in below to continue to your dashboard.'
+              : 'Create an account below to get started.'}
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-foreground">Email</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="border border-input rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
+        <div className="rounded-xl border border-border bg-secondary/45 p-5 sm:p-7">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-foreground">Email</label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none transition focus:ring-2 focus:ring-ring"
+              />
+            </div>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-foreground">Password</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="border border-input rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-foreground">Password</label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none transition focus:ring-2 focus:ring-ring"
+              />
+            </div>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="bg-primary text-primary-foreground rounded-md py-2 text-sm font-semibold hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-2"
-          >
-            {submitting && (
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            )}
-            {mode === 'signin' ? 'Sign In' : 'Create Account'}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="mt-1 flex items-center justify-center gap-2 rounded-xl bg-primary py-3 text-lg font-bold text-primary-foreground transition hover:brightness-95 disabled:opacity-60"
+            >
+              {submitting && (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              )}
+              {mode === 'signin' ? 'Login to Eshrahli' : 'Create Eshrahli Account'}
+            </button>
+          </form>
+        </div>
 
         <p className="text-center text-sm text-muted-foreground mt-4">
           {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}

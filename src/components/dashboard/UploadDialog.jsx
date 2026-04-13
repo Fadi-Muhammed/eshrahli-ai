@@ -7,10 +7,23 @@ import { useLanguage } from '../LanguageContext'
 import { extractAndCreateSlides } from '../../api/extraction'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Upload, FileText, CheckCircle, X, ChevronDown } from 'lucide-react'
+import { Upload, CheckCircle, X, ChevronDown } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
-const STEPS = ['select', 'uploading', 'done']
+function toErrorDetails(error) {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      cause: error.cause,
+    }
+  }
+  return {
+    message: String(error),
+    raw: error,
+  }
+}
 
 export default function UploadDialog({ onClose, defaultCourseId = '' }) {
   const { t } = useLanguage()
@@ -28,10 +41,23 @@ export default function UploadDialog({ onClose, defaultCourseId = '' }) {
   const [error, setError] = useState(null)
   const fileInputRef = useRef(null)
 
+  const clearSelectedFile = useCallback(() => {
+    setFile(null)
+    setError(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }, [])
+
+  const openFilePicker = useCallback(() => {
+    if (!fileInputRef.current) return
+    fileInputRef.current.value = ''
+    fileInputRef.current.click()
+  }, [])
+
   const handleFile = useCallback((f) => {
     if (!f) return
-    const ok = f.name.endsWith('.pdf') || f.name.endsWith('.pptx')
-    if (!ok) { toast.error('Only PDF and PPTX files are supported.'); return }
+    const lowerName = f.name.toLowerCase()
+    const ok = lowerName.endsWith('.pptx') || lowerName.endsWith('.pdf')
+    if (!ok) { toast.error('Only PPTX or PDF files are supported.'); return }
     if (f.size > 52_428_800) { toast.error('File must be under 50 MB.'); return }
     setFile(f)
     setError(null)
@@ -58,13 +84,20 @@ export default function UploadDialog({ onClose, defaultCourseId = '' }) {
       setResult({ count: slides.length, courseId })
       setStep('done')
     } catch (err) {
-      setError(err.message ?? 'Upload failed')
+      const errorDetails = toErrorDetails(err)
+      console.error('[UploadDialog] Upload/extraction failed', {
+        courseId,
+        fileName: file?.name,
+        error: errorDetails,
+      })
+      setError(errorDetails.message || 'Upload failed')
       setStep('select')
     }
   }
 
   const progressLabel = {
     extracting: 'Extracting pages…',
+    converting: 'Converting PPTX to PDF…',
     uploading: 'Uploading file…',
     saving: 'Saving slides…',
     done: 'Done!',
@@ -77,7 +110,7 @@ export default function UploadDialog({ onClose, defaultCourseId = '' }) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 8 }}
         transition={{ duration: 0.18, ease: 'easeOut' }}
-        className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden"
+        className="bg-card rounded-xl shadow-2xl dark:shadow-black/45 w-full max-w-md overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
@@ -107,7 +140,7 @@ export default function UploadDialog({ onClose, defaultCourseId = '' }) {
                     <select
                       value={courseId}
                       onChange={(e) => setCourseId(e.target.value)}
-                      className="w-full appearance-none border border-input rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring bg-white pr-9"
+                      className="w-full appearance-none border border-input rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring bg-background pr-9"
                     >
                       <option value="">Select a course…</option>
                       {courses.map((c) => (
@@ -123,22 +156,25 @@ export default function UploadDialog({ onClose, defaultCourseId = '' }) {
                   onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
                   onDragLeave={() => setDragging(false)}
                   onDrop={onDrop}
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={openFilePicker}
                   className={cn(
                     'relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200',
                     dragging
                       ? 'border-primary bg-primary/5 scale-[1.01]'
                       : file
-                        ? 'border-green-400 bg-green-50'
+                        ? 'border-green-500/70 bg-green-500/10'
                         : 'border-border hover:border-primary/50 hover:bg-muted/40'
                   )}
                 >
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".pdf,.pptx"
+                    accept=".pptx,.pdf"
                     className="hidden"
-                    onChange={(e) => handleFile(e.target.files[0])}
+                    onChange={(e) => {
+                      handleFile(e.target.files[0])
+                      e.target.value = ''
+                    }}
                   />
 
                   <AnimatePresence mode="wait">
@@ -148,7 +184,10 @@ export default function UploadDialog({ onClose, defaultCourseId = '' }) {
                         <p className="font-medium text-sm text-foreground">{file.name}</p>
                         <p className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
                         <button
-                          onClick={(e) => { e.stopPropagation(); setFile(null) }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            clearSelectedFile()
+                          }}
                           className="text-xs text-muted-foreground hover:text-destructive mt-1"
                         >
                           Remove
@@ -160,14 +199,29 @@ export default function UploadDialog({ onClose, defaultCourseId = '' }) {
                           <Upload size={22} className="text-primary" />
                         </div>
                         <p className="font-medium text-sm text-foreground">Drop your file here</p>
-                        <p className="text-xs text-muted-foreground">PDF or PPTX · max 50 MB</p>
+                        <p className="text-xs text-muted-foreground">PPTX preferred · PDF fallback · max 50 MB</p>
                       </motion.div>
                     )}
                   </AnimatePresence>
                 </div>
 
                 {error && (
-                  <p className="text-sm text-destructive bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+                  <div className="space-y-2">
+                    <p className="text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">{error}</p>
+                    {String(error).includes('cannot be converted reliably in the browser engine') && (
+                      <p className="text-xs text-muted-foreground rounded-lg border border-border px-3 py-2 bg-muted/40">
+                        Tip: run the backend converter and set <code>VITE_PPTX_CONVERTER_URL</code> to bypass browser conversion limits.
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleUpload}
+                      disabled={!file || !courseId}
+                      className="w-full px-4 py-2 text-sm rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Try again
+                    </button>
+                  </div>
                 )}
 
                 <div className="flex justify-end gap-2 pt-1">
@@ -241,7 +295,7 @@ export default function UploadDialog({ onClose, defaultCourseId = '' }) {
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
-                  className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center"
+                  className="w-16 h-16 rounded-full bg-green-500/12 flex items-center justify-center"
                 >
                   <CheckCircle size={32} className="text-green-500" />
                 </motion.div>

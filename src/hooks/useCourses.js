@@ -35,6 +35,34 @@ export function useCreateCourse() {
   })
 }
 
+export function useCreateCoursesBatch() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (courses) => {
+      const payload = courses
+        .map((course) => ({
+          name: course.name?.trim(),
+          name_ar: (course.name_ar ?? course.name)?.trim(),
+          user_id: user.id,
+        }))
+        .filter((course) => course.name)
+
+      if (!payload.length) return []
+
+      const { data, error } = await supabase
+        .from('courses')
+        .insert(payload)
+        .select('*')
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['courses'] }),
+  })
+}
+
 export function useUpdateCourse() {
   const qc = useQueryClient()
   return useMutation({

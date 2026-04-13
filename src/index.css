@@ -6,28 +6,51 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 20%;
-    --card: 210 20% 98%;
-    --card-foreground: 0 0% 20%;
+    --background: 215 26% 93%;
+    --foreground: 222 32% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 32% 14%;
     --primary: 207 100% 37%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 216 30% 92%;
-    --secondary-foreground: 0 0% 20%;
-    --muted: 210 16% 93%;
-    --muted-foreground: 200 4% 46%;
+    --secondary: 214 30% 90%;
+    --secondary-foreground: 222 28% 20%;
+    --muted: 214 24% 90%;
+    --muted-foreground: 217 16% 36%;
     --accent: 140 49% 34%;
     --accent-foreground: 0 0% 100%;
     --destructive: 358 73% 47%;
     --destructive-foreground: 0 0% 100%;
-    --border: 216 25% 85%;
-    --input: 216 25% 85%;
+    --border: 217 25% 81%;
+    --input: 217 24% 80%;
     --ring: 207 100% 37%;
     --radius: 0.5rem;
     --sidebar: 220 28% 15%;
     --sidebar-foreground: 0 0% 95%;
     --sidebar-accent: 207 100% 37%;
     --navbar-height: 56px;
+  }
+
+  .dark {
+    --background: 222 30% 9%;
+    --foreground: 210 24% 96%;
+    --card: 223 28% 13%;
+    --card-foreground: 210 24% 96%;
+    --primary: 201 100% 55%;
+    --primary-foreground: 222 40% 10%;
+    --secondary: 222 23% 18%;
+    --secondary-foreground: 210 24% 92%;
+    --muted: 223 22% 16%;
+    --muted-foreground: 214 16% 72%;
+    --accent: 152 55% 44%;
+    --accent-foreground: 222 40% 10%;
+    --destructive: 0 71% 58%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 223 20% 24%;
+    --input: 223 20% 24%;
+    --ring: 201 100% 55%;
+    --sidebar: 222 28% 12%;
+    --sidebar-foreground: 210 24% 95%;
+    --sidebar-accent: 201 100% 55%;
   }
 
   * {
@@ -47,5 +70,25 @@
 
   #root {
     min-height: 100vh;
+  }
+
+  html:not(.dark) .app-shell-main .bg-white .text-muted-foreground,
+  html:not(.dark) .app-shell-main .bg-white .text-foreground {
+    color: hsl(var(--foreground)) !important;
+  }
+
+  .dark .prose {
+    color: hsl(var(--foreground));
+  }
+
+  .dark .prose :where(strong, h1, h2, h3, h4, h5, h6) {
+    color: hsl(var(--foreground));
+  }
+
+  .dark .prose :where(code) {
+    color: hsl(var(--foreground));
+    background: hsl(var(--muted));
+    border-radius: 0.25rem;
+    padding: 0.1rem 0.25rem;
   }
 }
