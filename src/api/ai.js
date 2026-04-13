@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
 
-const MODEL = 'google/gemma-4-26b-a4b-it:free'
+const MODEL = 'x-ai/grok-4.1-fast'
 
 const client = new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
