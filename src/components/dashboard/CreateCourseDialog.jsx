@@ -8,13 +8,12 @@ export default function CreateCourseDialog({ onClose }) {
   const { t } = useLanguage()
   const createCourse = useCreateCourse()
   const [name, setName] = useState('')
-  const [nameAr, setNameAr] = useState('')
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!name.trim() || !nameAr.trim()) return
+    if (!name.trim()) return
     try {
-      await createCourse.mutateAsync({ name: name.trim(), name_ar: nameAr.trim() })
+      await createCourse.mutateAsync({ name: name.trim(), name_ar: name.trim() })
       toast.success('Course created!')
       onClose()
     } catch (err) {
@@ -38,21 +37,11 @@ export default function CreateCourseDialog({ onClose }) {
             <input
               type="text"
               required
+              autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Data Structures"
-              className="border border-input rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium">{t('courseNameAr')}</label>
-            <input
-              type="text"
-              required
-              dir="rtl"
-              value={nameAr}
-              onChange={(e) => setNameAr(e.target.value)}
-              placeholder="مثال: هياكل البيانات"
+              placeholder="e.g. Data Structures / هياكل البيانات"
+              dir="auto"
               className="border border-input rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
             />
           </div>

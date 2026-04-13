@@ -8,13 +8,12 @@ export default function RenameCourseDialog({ course, onClose }) {
   const { t } = useLanguage()
   const updateCourse = useUpdateCourse()
   const [name, setName] = useState(course.name)
-  const [nameAr, setNameAr] = useState(course.name_ar)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!name.trim() || !nameAr.trim()) return
+    if (!name.trim()) return
     try {
-      await updateCourse.mutateAsync({ id: course.id, name: name.trim(), name_ar: nameAr.trim() })
+      await updateCourse.mutateAsync({ id: course.id, name: name.trim(), name_ar: name.trim() })
       toast.success('Course renamed!')
       onClose()
     } catch (err) {
@@ -38,19 +37,10 @@ export default function RenameCourseDialog({ course, onClose }) {
             <input
               type="text"
               required
+              autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="border border-input rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium">{t('courseNameAr')}</label>
-            <input
-              type="text"
-              required
-              dir="rtl"
-              value={nameAr}
-              onChange={(e) => setNameAr(e.target.value)}
+              dir="auto"
               className="border border-input rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
