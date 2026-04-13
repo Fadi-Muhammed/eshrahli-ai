@@ -7,20 +7,14 @@ import { useLanguage } from '../components/LanguageContext'
 import ExplanationDisplay from '../components/slide/ExplanationDisplay'
 import QuestionThread from '../components/slide/QuestionThread'
 import QuizPanel from '../components/slide/QuizPanel'
-import { ChevronRight, ChevronLeft, Sparkles, MessageCircle, GraduationCap } from 'lucide-react'
+import { ChevronRight, ChevronLeft, ChevronDown, GraduationCap, X } from 'lucide-react'
 import { cn } from '../lib/utils'
 import ReactMarkdown from 'react-markdown'
 
-const TABS = [
-  { key: 'explanation', labelKey: 'explanation', icon: Sparkles },
-  { key: 'qa', labelKey: 'questions', icon: MessageCircle },
-  { key: 'quiz', labelKey: 'quiz', icon: GraduationCap },
-]
-
+// ── Slide nav sidebar item ────────────────────────────────────────────────────
 function SlideNavItem({ slide, isActive, courseId }) {
   const navigate = useNavigate()
   const ref = useRef(null)
-
   useEffect(() => {
     if (isActive) ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [isActive])
@@ -38,7 +32,7 @@ function SlideNavItem({ slide, isActive, courseId }) {
     >
       <span className="block font-medium">Slide {slide.slide_number}</span>
       {slide.original_text && (
-        <span className="block text-xs truncate opacity-60 mt-0.5">
+        <span className="block text-xs truncate opacity-55 mt-0.5">
           {slide.original_text.slice(0, 38)}
         </span>
       )}
@@ -46,13 +40,75 @@ function SlideNavItem({ slide, isActive, courseId }) {
   )
 }
 
+// ── Collapsible original content ─────────────────────────────────────────────
+function CollapsibleOriginal({ text }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="border border-border rounded-lg overflow-hidden">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
+      >
+        <span>Original Slide Content</span>
+        <motion.div animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
+          <ChevronDown size={15} />
+        </motion.div>
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4 pt-1 text-sm text-muted-foreground prose prose-sm max-w-none border-t border-border">
+              <ReactMarkdown>{text}</ReactMarkdown>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+// ── Quiz modal ────────────────────────────────────────────────────────────────
+function QuizModal({ slide, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 16 }}
+        transition={{ duration: 0.18 }}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
+          <div className="flex items-center gap-2 font-semibold text-foreground">
+            <GraduationCap size={17} style={{ color: '#00C2CB' }} />
+            Quiz — Slide {slide.slide_number}
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted transition-colors">
+            <X size={17} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5">
+          <QuizPanel slide={slide} />
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
 export default function Slide() {
   const { courseId, slideId } = useParams()
   const { t, language } = useLanguage()
   const { data: courses } = useCourses()
   const { data: slide, isLoading } = useSlide(slideId)
   const { data: slides = [] } = useSlides(courseId)
-  const [activeTab, setActiveTab] = useState('explanation')
+  const [quizOpen, setQuizOpen] = useState(false)
   const navigate = useNavigate()
 
   const course = courses?.find((c) => c.id === courseId)
@@ -61,15 +117,14 @@ export default function Slide() {
   const prevSlide = currentIndex > 0 ? slides[currentIndex - 1] : null
   const nextSlide = currentIndex < slides.length - 1 ? slides[currentIndex + 1] : null
 
+  const isPDF = slide?.file_url && (slide.file_name?.endsWith('.pdf') || slide.file_url?.includes('.pdf'))
+
   // Keyboard navigation
   useEffect(() => {
     const handler = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
       if (e.key === 'ArrowLeft' && prevSlide) navigate(`/course/${courseId}/slide/${prevSlide.id}`)
       if (e.key === 'ArrowRight' && nextSlide) navigate(`/course/${courseId}/slide/${nextSlide.id}`)
-      if (e.key === 'e' || e.key === 'E') setActiveTab('explanation')
-      if (e.key === 'q' || e.key === 'Q') setActiveTab('qa')
-      if (e.key === 't' || e.key === 'T') setActiveTab('quiz')
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -89,7 +144,7 @@ export default function Slide() {
 
   if (!slide) {
     return (
-      <div className="text-center py-24 text-muted-foreground">
+      <div className="text-center py-24 text-muted-foreground text-sm">
         Slide not found.{' '}
         <Link to={`/course/${courseId}`} className="text-primary hover:underline">Back to course</Link>
       </div>
@@ -107,10 +162,9 @@ export default function Slide() {
         <span className="text-foreground font-medium">Slide {slide.slide_number}</span>
       </nav>
 
-      {/* 3-column layout */}
       <div className="flex gap-3 flex-1 min-h-0">
 
-        {/* Col 1: Slide list — hidden on mobile */}
+        {/* ── Col 1: Slide navigation list ── */}
         <div className="hidden lg:flex flex-col w-44 xl:w-52 shrink-0 bg-white rounded-xl border border-border overflow-hidden">
           <div className="px-3 py-2.5 border-b border-border">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -124,30 +178,57 @@ export default function Slide() {
           </div>
         </div>
 
-        {/* Col 2: Slide content */}
+        {/* ── Col 2: Slide content (PDF iframe or text) ── */}
         <div className="flex flex-col flex-1 min-w-0 gap-3">
           <AnimatePresence mode="wait">
             <motion.div
               key={slideId}
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.2 }}
-              className="bg-white border border-border rounded-xl p-5 flex-1 overflow-y-auto"
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="bg-white border border-border rounded-xl overflow-hidden flex-1 flex flex-col"
             >
-              <div className="flex items-center justify-between mb-4">
+              {/* Slide header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
                 <span className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
                   Slide {slide.slide_number} of {slides.length}
                 </span>
-                {slide.file_name && (
-                  <span className="text-xs text-muted-foreground truncate max-w-[160px]">{slide.file_name}</span>
-                )}
+                <div className="flex items-center gap-2">
+                  {slide.file_name && (
+                    <span className="text-xs text-muted-foreground truncate max-w-[160px]">{slide.file_name}</span>
+                  )}
+                  {/* Quiz button — per spec, prominent but not a tab */}
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setQuizOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-border hover:bg-muted transition-colors"
+                    style={{ color: '#00C2CB' }}
+                  >
+                    <GraduationCap size={14} />
+                    {t('quiz')}
+                  </motion.button>
+                </div>
               </div>
-              <div className="prose prose-sm max-w-none text-foreground leading-relaxed">
-                {slide.original_text
-                  ? <ReactMarkdown>{slide.original_text}</ReactMarkdown>
-                  : <p className="text-muted-foreground italic">No text content for this slide.</p>
-                }
+
+              {/* PDF iframe or text */}
+              <div className="flex-1 overflow-hidden">
+                {isPDF && slide.file_url ? (
+                  <iframe
+                    src={`${slide.file_url}#page=${slide.slide_number}`}
+                    className="w-full h-full border-0"
+                    title={`Slide ${slide.slide_number}`}
+                  />
+                ) : (
+                  <div className="h-full overflow-y-auto p-5">
+                    <div className="prose prose-sm max-w-none text-foreground leading-relaxed">
+                      {slide.original_text
+                        ? <ReactMarkdown>{slide.original_text}</ReactMarkdown>
+                        : <p className="text-muted-foreground italic text-sm">No text content for this slide.</p>
+                      }
+                    </div>
+                  </div>
+                )}
               </div>
             </motion.div>
           </AnimatePresence>
@@ -161,71 +242,56 @@ export default function Slide() {
               className="flex items-center gap-1.5 px-3.5 py-2 text-sm border border-border rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors bg-white"
             >
               <ChevronLeft size={15} />
-              <span className="hidden sm:inline">Previous</span>
+              <span className="hidden sm:inline">{t('previous')}</span>
             </motion.button>
-
-            <span className="text-sm text-muted-foreground font-medium">
+            <span className="text-sm text-muted-foreground font-medium tabular-nums">
               {currentIndex + 1} / {slides.length}
             </span>
-
             <motion.button
               whileTap={{ scale: 0.95 }}
               disabled={!nextSlide}
               onClick={() => nextSlide && navigate(`/course/${courseId}/slide/${nextSlide.id}`)}
               className="flex items-center gap-1.5 px-3.5 py-2 text-sm border border-border rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors bg-white"
             >
-              <span className="hidden sm:inline">Next</span>
+              <span className="hidden sm:inline">{t('next')}</span>
               <ChevronRight size={15} />
             </motion.button>
           </div>
         </div>
 
-        {/* Col 3: AI panel */}
-        <div className="flex flex-col w-72 xl:w-88 shrink-0 bg-white border border-border rounded-xl overflow-hidden">
-          {/* Tabs */}
-          <div className="flex border-b border-border shrink-0 relative">
-            {TABS.map(({ key, labelKey, icon: Icon }) => (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key)}
-                className={cn(
-                  'flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-medium transition-colors relative',
-                  activeTab === key ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                <Icon size={13} />
-                {t(labelKey)}
-                {activeTab === key && (
-                  <motion.div
-                    layoutId="tab-indicator"
-                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full"
-                    transition={{ duration: 0.2 }}
-                  />
-                )}
-              </button>
-            ))}
-          </div>
+        {/* ── Col 3: AI panel — Explanation + Q&A (spec layout) ── */}
+        <div className="flex flex-col w-80 xl:w-96 shrink-0 bg-white border border-border rounded-xl overflow-hidden">
+          <div className="flex-1 overflow-y-auto flex flex-col">
 
-          {/* Tab content */}
-          <div className="flex-1 overflow-y-auto p-4">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeTab}
-                initial={{ opacity: 0, x: 6 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -6 }}
-                transition={{ duration: 0.15 }}
-                className="h-full"
-              >
-                {activeTab === 'explanation' && <ExplanationDisplay slide={slide} />}
-                {activeTab === 'qa' && <QuestionThread slide={slide} />}
-                {activeTab === 'quiz' && <QuizPanel slide={slide} />}
-              </motion.div>
-            </AnimatePresence>
+            {/* Explanation section */}
+            <div className="p-4 border-b border-border">
+              <ExplanationDisplay slide={slide} />
+
+              {/* Collapsible original content — per spec */}
+              {slide.original_text && (
+                <div className="mt-4">
+                  <CollapsibleOriginal text={slide.original_text} />
+                </div>
+              )}
+            </div>
+
+            {/* Q&A section — below explanation, per spec */}
+            <div className="flex-1 flex flex-col min-h-0 p-4" style={{ minHeight: 280 }}>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                Follow-Up Questions
+              </p>
+              <QuestionThread slide={slide} />
+            </div>
+
           </div>
         </div>
 
       </div>
+
+      {/* Quiz modal */}
+      <AnimatePresence>
+        {quizOpen && <QuizModal slide={slide} onClose={() => setQuizOpen(false)} />}
+      </AnimatePresence>
     </div>
   )
 }

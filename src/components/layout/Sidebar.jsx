@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Bookmark, X } from 'lucide-react'
+import { LayoutDashboard, Bookmark, Settings, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useLanguage } from '../LanguageContext'
 import { cn } from '../../lib/utils'
@@ -7,6 +7,7 @@ import { cn } from '../../lib/utils'
 const navItems = [
   { to: '/', icon: LayoutDashboard, labelKey: 'dashboard', end: true },
   { to: '/saved', icon: Bookmark, labelKey: 'saved' },
+  { to: '/settings', icon: Settings, labelKey: 'settings' },
 ]
 
 export default function Sidebar({ open, onClose }) {

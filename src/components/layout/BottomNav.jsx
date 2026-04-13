@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Bookmark } from 'lucide-react'
+import { LayoutDashboard, Bookmark, Settings } from 'lucide-react'
 import { useLanguage } from '../LanguageContext'
 import { cn } from '../../lib/utils'
 import { motion } from 'framer-motion'
@@ -7,6 +7,7 @@ import { motion } from 'framer-motion'
 const items = [
   { to: '/', icon: LayoutDashboard, labelKey: 'dashboard', end: true },
   { to: '/saved', icon: Bookmark, labelKey: 'saved' },
+  { to: '/settings', icon: Settings, labelKey: 'settings' },
 ]
 
 export default function BottomNav() {

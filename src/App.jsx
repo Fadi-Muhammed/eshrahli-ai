@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard'
 import Course from './pages/Course'
 import Slide from './pages/Slide'
 import Saved from './pages/Saved'
+import Settings from './pages/Settings'
 import Login from './pages/Login'
 import ProtectedRoute from './lib/ProtectedRoute'
 
@@ -23,6 +24,7 @@ export default function App() {
                 <Route path="course/:courseId" element={<Course />} />
                 <Route path="course/:courseId/slide/:slideId" element={<Slide />} />
                 <Route path="saved" element={<Saved />} />
+                <Route path="settings" element={<Settings />} />
               </Route>
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

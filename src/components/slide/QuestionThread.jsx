@@ -83,7 +83,7 @@ export default function QuestionThread({ slide }) {
                 dir="rtl"
                 className="bg-white border border-border px-3 py-2 rounded-2xl rounded-bl-none text-sm max-w-[80%] prose prose-sm"
               >
-                <ReactMarkdown>{q.answer_text}</ReactMarkdown>
+                <ReactMarkdown components={{ strong: ({ children }) => <strong style={{ color: '#00C2CB', fontWeight: 700 }}>{children}</strong> }}>{q.answer_text}</ReactMarkdown>
               </div>
             </div>
           </div>
