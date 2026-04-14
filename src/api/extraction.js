@@ -1,6 +1,7 @@
 import JSZip from 'jszip'
 import { supabase } from './supabaseClient'
 import { convertPptxFileToPdfFile } from '../lib/pptxToPdf'
+import { extractTextFromSlideImage } from './ai'
 import * as pdfjsLib from 'pdfjs-dist'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -49,6 +50,61 @@ async function extractPPTX(file) {
   return pages
 }
 
+// ─── OCR fallback for image-heavy slides ─────────────────────────────────────
+const MIN_TEXT_LENGTH = 20
+
+async function renderPageToImage(pdf, pageNum) {
+  const page = await pdf.getPage(pageNum)
+  const viewport = page.getViewport({ scale: 1.5 })
+  const canvas = document.createElement('canvas')
+  canvas.width = viewport.width
+  canvas.height = viewport.height
+  const ctx = canvas.getContext('2d')
+  await page.render({ canvasContext: ctx, viewport }).promise
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+  canvas.width = 0
+  canvas.height = 0
+  return dataUrl
+}
+
+async function ocrWeakPages(pages, pdfFile, onProgress) {
+  const weakIndices = pages
+    .map((text, i) => (text.trim().length < MIN_TEXT_LENGTH ? i : -1))
+    .filter((i) => i >= 0)
+
+  if (weakIndices.length === 0) return pages
+
+  console.info('[Extraction] OCR needed for pages', { count: weakIndices.length, indices: weakIndices })
+
+  const arrayBuffer = await pdfFile.arrayBuffer()
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  const result = [...pages]
+
+  const BATCH_SIZE = 3
+  for (let b = 0; b < weakIndices.length; b += BATCH_SIZE) {
+    const batch = weakIndices.slice(b, b + BATCH_SIZE)
+    const progress = Math.round(((b + batch.length) / weakIndices.length) * 100)
+    onProgress?.({ step: 'scanning', percent: progress, scanned: b + batch.length, total: weakIndices.length })
+
+    const promises = batch.map(async (pageIdx) => {
+      try {
+        const dataUrl = await renderPageToImage(pdf, pageIdx + 1)
+        const ocrText = await extractTextFromSlideImage(dataUrl)
+        if (ocrText.length > result[pageIdx].length) {
+          result[pageIdx] = ocrText
+          console.info('[Extraction] OCR improved page', { page: pageIdx + 1, chars: ocrText.length })
+        }
+      } catch (err) {
+        console.warn('[Extraction] OCR failed for page', { page: pageIdx + 1, error: err?.message })
+      }
+    })
+
+    await Promise.all(promises)
+  }
+
+  return result
+}
+
 // ─── Upload file to Supabase Storage ─────────────────────────────────────────
 async function uploadFile(file, userId) {
   const ext = file.name.split('.').pop()
@@ -87,18 +143,22 @@ export async function extractAndCreateSlides({
 
   onProgress?.({ step: 'extracting', percent: 10 })
   console.info('[Extraction] Extracting slide text', { isPPTX, isPDF })
-  const pages = isPPTX ? await extractPPTX(file) : await extractPDF(file)
+  let pages = isPPTX ? await extractPPTX(file) : await extractPDF(file)
 
   if (pages.length === 0) throw new Error('No pages found in the file.')
 
   let uploadableFile = file
   if (isPPTX) {
-    onProgress?.({ step: 'converting', percent: 35 })
+    onProgress?.({ step: 'converting', percent: 25 })
     console.info('[Extraction] Converting PPTX to PDF')
     uploadableFile = await convertPptxFileToPdfFile(file)
   }
 
-  onProgress?.({ step: 'uploading', percent: 60 })
+  // OCR fallback: for pages with little/no text, render from PDF and use vision AI
+  onProgress?.({ step: 'scanning', percent: 40 })
+  pages = await ocrWeakPages(pages, uploadableFile, onProgress)
+
+  onProgress?.({ step: 'uploading', percent: 65 })
   console.info('[Extraction] Uploading source/conversion output', {
     uploadFileName: uploadableFile?.name,
     uploadFileType: uploadableFile?.type,

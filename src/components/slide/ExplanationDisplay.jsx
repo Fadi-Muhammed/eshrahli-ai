@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
 import { motion, AnimatePresence } from 'framer-motion'
 import { generateExplanation, generateGlossary } from '../../api/ai'
 import { useExplanation, useUpsertExplanation } from '../../hooks/useExplanations'
@@ -143,7 +145,7 @@ export default function ExplanationDisplay({ slide }) {
             dir="rtl"
             className="prose prose-sm max-w-none leading-[1.9] text-foreground"
           >
-            <ReactMarkdown components={markdownComponents}>{displayed}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]} components={markdownComponents}>{displayed}</ReactMarkdown>
             {generating && (
               <span
                 className="inline-block w-0.5 h-4 ml-0.5 align-middle animate-pulse"

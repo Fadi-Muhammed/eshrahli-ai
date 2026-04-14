@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
 import { answerQuestion, generateGlossary } from '../../api/ai'
 import { useQuestions, useCreateQuestion } from '../../hooks/useQuestions'
 import { useLanguage } from '../LanguageContext'
@@ -43,7 +45,7 @@ function AnswerBubble({ question }) {
 
   return (
     <div dir="rtl" className="bg-card border border-border px-3 py-2.5 rounded-2xl rounded-bl-none text-sm max-w-[85%] prose prose-sm">
-      <ReactMarkdown components={markdownComponents}>{question.answer_text}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]} components={markdownComponents}>{question.answer_text}</ReactMarkdown>
     </div>
   )
 }
@@ -137,7 +139,7 @@ export default function QuestionThread({ slide }) {
             <div className="flex justify-start">
               {streamingAnswer ? (
                 <div dir="rtl" className="bg-card border border-border px-3 py-2.5 rounded-2xl rounded-bl-none text-sm max-w-[85%] prose prose-sm">
-                  <ReactMarkdown components={streamingComponents}>{streamingAnswer}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]} components={streamingComponents}>{streamingAnswer}</ReactMarkdown>
                   <span
                     className="inline-block w-0.5 h-3.5 ml-0.5 align-middle animate-pulse"
                     style={{ background: '#00C2CB' }}

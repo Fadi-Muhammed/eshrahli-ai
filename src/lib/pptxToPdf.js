@@ -1,226 +1,114 @@
-const SPIRE_JS_URL = '/vendor/spire/Spire.Presentation.Base.js'
-const BACKEND_CONVERTER_URL = import.meta.env.VITE_PPTX_CONVERTER_URL
-const VFS_FONT_DIR = '/Library/Fonts/'
-const PUBLIC_FONTS_BASE = '/vendor/fonts/'
-const FONT_FILES = [
-  'ARIALUNI.TTF',
-  'DejaVuSans.ttf',
-  'DejaVuSans-Bold.ttf',
-  'DejaVuSerif.ttf',
-  'Vazirmatn-Regular.ttf',
-  'Vazirmatn-Bold.ttf',
-  'Tahoma.ttf',
-  'Tahoma Bold.ttf',
-]
+// ─── PPTX → PDF via Zamzar ───────────────────────────────────────────────────
+// Dev:  Vite proxies /zamzar-api → https://api.zamzar.com  (no CORS)
+// Prod: /api/convert-pptx Vercel serverless function handles everything
 
-let runtimePromise
+const ZAMZAR_API_KEY = import.meta.env.VITE_ZAMZAR_API_KEY
+// In dev the Vite proxy strips /zamzar-api and forwards to api.zamzar.com.
+// In prod the browser would hit CORS, so we go through the Vercel function instead.
+const IS_DEV = import.meta.env.DEV
+const ZAMZAR_BASE = IS_DEV ? '/zamzar-api/v1' : null
+const VERCEL_CONVERTER = '/api/convert-pptx'
 
-function ensureSpireRuntime() {
-  if (runtimePromise) return runtimePromise
-
-  runtimePromise = new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[data-spire-runtime="true"]`)
-    if (existing && window.spirepresentation) {
-      resolve(window.spirepresentation)
-      return
-    }
-
-    const previousInit = window.Module?.onRuntimeInitialized
-    window.Module = {
-      ...(window.Module ?? {}),
-      onRuntimeInitialized: () => {
-        try {
-          previousInit?.()
-        } catch {
-          // Ignore prior handler errors so conversion can continue.
-        }
-        resolve(window.spirepresentation)
-      },
-    }
-
-    if (existing) {
-      return
-    }
-
-    const script = document.createElement('script')
-    script.src = SPIRE_JS_URL
-    script.async = true
-    script.dataset.spireRuntime = 'true'
-    script.onerror = () => reject(new Error('Failed to load PPTX converter runtime.'))
-    document.body.appendChild(script)
-  })
-
-  return runtimePromise
+function zamzarAuth() {
+  return 'Basic ' + btoa(ZAMZAR_API_KEY + ':')
 }
 
-let fontsPromise
-let hasLoggedBackendConfigHint = false
+// ─── Dev path: direct Zamzar calls via Vite proxy ────────────────────────────
 
-async function convertPptxViaBackend(file) {
-  if (!BACKEND_CONVERTER_URL) return null
+async function zamzarCreateJob(file) {
+  const form = new FormData()
+  form.append('source_file', file, file.name)
+  form.append('target_format', 'pdf')
 
-  console.info('[PPTX->PDF] Trying backend converter', {
-    endpoint: BACKEND_CONVERTER_URL,
-    fileName: file?.name,
-    fileSize: file?.size,
+  const res = await fetch(`${ZAMZAR_BASE}/jobs`, {
+    method: 'POST',
+    headers: { Authorization: zamzarAuth() },
+    body: form,
   })
 
-  const formData = new FormData()
-  formData.append('file', file, file.name)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(
+      body?.errors?.[0]?.message || body?.message || `Zamzar job creation failed (${res.status})`
+    )
+  }
+  return res.json()
+}
 
-  let response
-  try {
-    response = await fetch(BACKEND_CONVERTER_URL, {
-      method: 'POST',
-      body: formData,
+async function zamzarPollJob(jobId, maxWaitMs = 120_000, intervalMs = 3_000) {
+  const deadline = Date.now() + maxWaitMs
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, intervalMs))
+
+    const res = await fetch(`${ZAMZAR_BASE}/jobs/${jobId}`, {
+      headers: { Authorization: zamzarAuth() },
     })
-  } catch (error) {
-    const message = String(error?.message || '').toLowerCase()
-    const isNetworkFailure =
-      message.includes('failed to fetch') ||
-      message.includes('networkerror') ||
-      message.includes('connection refused')
+    if (!res.ok) throw new Error(`Zamzar status check failed (${res.status})`)
 
-    if (isNetworkFailure) {
-      throw new Error(
-        'PPTX converter service is not reachable. Start the app with `npm run dev` and retry.'
-      )
+    const job = await res.json()
+    console.info('[PPTX→PDF] Zamzar job status', { jobId, status: job.status })
+
+    if (job.status === 'successful') return job
+    if (job.status === 'failed') {
+      throw new Error(`Zamzar conversion failed${job.errors?.length ? ': ' + job.errors[0].message : ''}`)
     }
-
-    throw error
   }
+  throw new Error('Zamzar conversion timed out after 2 minutes')
+}
 
-  if (!response.ok) {
-    let message = `Backend converter failed (${response.status})`
-    try {
-      const body = await response.json()
-      message = body?.error || body?.message || message
-    } catch (jsonError) {
-      void jsonError
-      const text = await response.text().catch(() => '')
-      if (text) message = text
-    }
-    console.error('[PPTX->PDF] Backend converter failed', {
-      status: response.status,
-      message,
-    })
-    throw new Error(message)
-  }
+async function zamzarDownload(fileId) {
+  const res = await fetch(`${ZAMZAR_BASE}/files/${fileId}/content`, {
+    headers: { Authorization: zamzarAuth() },
+  })
+  if (!res.ok) throw new Error(`Zamzar download failed (${res.status})`)
+  return res.blob()
+}
 
-  const blob = await response.blob()
-  if (!blob || blob.size === 0) {
-    throw new Error('Backend converter returned an empty PDF file.')
-  }
+async function convertViaDev(file) {
+  const job = await zamzarCreateJob(file)
+  console.info('[PPTX→PDF] Zamzar job created', { jobId: job.id })
+
+  const completed = await zamzarPollJob(job.id)
+  const fileId = completed.target_files?.[0]?.id
+  if (!fileId) throw new Error('Zamzar succeeded but returned no output file')
+
+  const blob = await zamzarDownload(fileId)
+  if (!blob || blob.size === 0) throw new Error('Zamzar returned an empty PDF')
 
   const baseName = file.name.replace(/\.pptx$/i, '') || 'presentation'
   return new File([blob], `${baseName}.pdf`, { type: 'application/pdf' })
 }
 
-async function ensureFontsLoaded(spire) {
-  if (fontsPromise) return fontsPromise
+// ─── Prod path: Vercel serverless function ────────────────────────────────────
 
-  fontsPromise = Promise.allSettled(
-    FONT_FILES.map((fontFile) => spire.FetchFileToVFS(fontFile, VFS_FONT_DIR, PUBLIC_FONTS_BASE))
-  ).then(() => {
-    try { spire.Presentation.SetCustomFontsDirctory(VFS_FONT_DIR) } catch (error) { void error }
-    try { spire.Presentation.SetDefaultFontName('Tahoma') } catch (error) { void error }
-    try { spire.Presentation.SetDefaultFontName('Vazirmatn') } catch (error) { void error }
-    try { spire.Presentation.SetDefaultFontName('Arial Unicode MS') } catch (error) { void error }
-  }).catch((error) => {
-    fontsPromise = undefined
-    throw error
-  })
+async function convertViaProd(file) {
+  const form = new FormData()
+  form.append('file', file, file.name)
 
-  return fontsPromise
+  const res = await fetch(VERCEL_CONVERTER, { method: 'POST', body: form })
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body?.error || body?.message || `Converter error (${res.status})`)
+  }
+
+  const blob = await res.blob()
+  if (!blob || blob.size === 0) throw new Error('Converter returned an empty PDF')
+
+  const baseName = file.name.replace(/\.pptx$/i, '') || 'presentation'
+  return new File([blob], `${baseName}.pdf`, { type: 'application/pdf' })
 }
 
+// ─── Public API ───────────────────────────────────────────────────────────────
+
 export async function convertPptxFileToPdfFile(file) {
-  if (BACKEND_CONVERTER_URL) {
-    const backendPdf = await convertPptxViaBackend(file)
-    if (backendPdf) {
-      console.info('[PPTX->PDF] Backend converter succeeded', {
-        outputSize: backendPdf.size,
-      })
-      return backendPdf
-    }
-  } else if (!hasLoggedBackendConfigHint) {
-    hasLoggedBackendConfigHint = true
-    console.warn('[PPTX->PDF] No backend converter configured. Set VITE_PPTX_CONVERTER_URL to avoid browser-engine conversion failures on some decks.')
-  }
-
-  const spire = await ensureSpireRuntime()
-  if (!spire?.Presentation || !spire?.Stream || !spire?.FileFormat) {
-    throw new Error('PPTX converter is not available in this browser session.')
-  }
-
-  await ensureFontsLoaded(spire)
-  console.info('[PPTX->PDF] Browser converter started', {
+  console.info('[PPTX→PDF] Starting conversion', {
+    mode: IS_DEV ? 'dev (Vite proxy → Zamzar)' : 'prod (Vercel function)',
     fileName: file?.name,
     fileSize: file?.size,
   })
 
-  const inputBytes = new Uint8Array(await file.arrayBuffer())
-  const loadFormats = [
-    undefined,
-    spire.FileFormat.Auto,
-  ]
-
-  let lastError
-  for (const loadFormat of loadFormats) {
-    const presentation = spire.Presentation.Create()
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
-    const pptxVfsPath = `/${id}.pptx`
-    const pdfVfsPath = `/${id}.pdf`
-
-    try {
-      if (typeof spire.PrepareFile === 'function') {
-        spire.PrepareFile(inputBytes, pptxVfsPath)
-      } else {
-        spire.FS.writeFile(pptxVfsPath, inputBytes, { flags: 'w+' })
-      }
-
-      if (loadFormat) {
-        try { presentation.SetCustomFontsFolder(VFS_FONT_DIR) } catch (error) { void error }
-        presentation.LoadFromFile(pptxVfsPath, loadFormat)
-      } else {
-        try { presentation.SetCustomFontsFolder(VFS_FONT_DIR) } catch (error) { void error }
-        presentation.LoadFromFile(pptxVfsPath)
-      }
-
-      presentation.SaveToFile(pdfVfsPath, spire.FileFormat.PDF)
-
-      if (!spire.FS?.analyzePath(pdfVfsPath)?.exists) {
-        throw new Error('Converted PDF file was not created.')
-      }
-
-      const pdfBytes = spire.FS.readFile(pdfVfsPath, { encoding: 'binary' })
-      const baseName = file.name.replace(/\.pptx$/i, '') || 'presentation'
-      console.info('[PPTX->PDF] Browser converter succeeded', {
-        loadFormat: loadFormat?.name ?? 'default',
-        outputBytes: pdfBytes?.length,
-      })
-      return new File([pdfBytes], `${baseName}.pdf`, { type: 'application/pdf' })
-    } catch (err) {
-      console.warn('[PPTX->PDF] Browser converter attempt failed', {
-        loadFormat: loadFormat?.name ?? 'default',
-        error: err,
-      })
-      lastError = err
-    } finally {
-      try { if (spire.FS?.analyzePath(pptxVfsPath)?.exists) spire.FS.unlink(pptxVfsPath) } catch (disposeError) { void disposeError }
-      try { if (spire.FS?.analyzePath(pdfVfsPath)?.exists) spire.FS.unlink(pdfVfsPath) } catch (disposeError) { void disposeError }
-      try { presentation.Dispose?.() } catch (disposeError) { void disposeError }
-    }
-  }
-
-  const message = lastError?.message || 'Could not convert this PPTX file to PDF.'
-  console.error('[PPTX->PDF] Conversion failed', {
-    fileName: file?.name,
-    message,
-    rawError: lastError,
-  })
-  if (/Arg_NullReferenceException/i.test(message)) {
-    throw new Error('This PPTX cannot be converted reliably in the browser engine. Please export it as PDF and upload the PDF file for this deck.')
-  }
-  throw new Error(message)
+  const result = IS_DEV ? await convertViaDev(file) : await convertViaProd(file)
+  console.info('[PPTX→PDF] Done', { outputSize: result.size })
+  return result
 }

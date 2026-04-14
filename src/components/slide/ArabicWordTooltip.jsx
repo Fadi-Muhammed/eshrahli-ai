@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import katex from 'katex'
 
 // ─── Portal tooltip — renders into document.body, never clipped ───────────────
 function TooltipPortal({ anchorRef, translation, show }) {
@@ -102,26 +103,45 @@ function applyTooltips(text, glossary, keyPrefix) {
   )
 }
 
-// ─── renderInline: **bold** + glossary tooltips on raw strings ────────────────
+// ─── renderInline: math + **bold** + glossary tooltips on raw strings ─────────
+function renderMath(src, displayMode, key) {
+  try {
+    const html = katex.renderToString(src, { throwOnError: false, displayMode })
+    return (
+      <span
+        key={key}
+        className={displayMode ? 'block my-1' : 'inline'}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    )
+  } catch {
+    return <span key={key}>{displayMode ? `$$${src}$$` : `$${src}$`}</span>
+  }
+}
+
 export function renderInline(text, glossary = {}, keyPrefix = 'ri') {
   if (!text) return null
 
-  const boldRegex = /(\*\*[^*\n]+?\*\*)/g
-  const parts = text.split(boldRegex)
+  // Split on $$block$$, $inline$, and **bold** in one pass
+  const tokenRegex = /(\$\$[\s\S]+?\$\$|\$[^$\n]+?\$|\*\*[^*\n]+?\*\*)/g
+  const parts = text.split(tokenRegex)
 
   return parts.map((part, i) => {
-    const isBold = /^\*\*[^*]+\*\*$/.test(part)
-    const content = isBold ? part.slice(2, -2) : part
-    const inner = applyTooltips(content, glossary, `${keyPrefix}-${i}`)
+    const key = `${keyPrefix}-${i}`
 
-    if (isBold) {
-      return (
-        <strong key={`${keyPrefix}-b-${i}`} style={{ color: '#00C2CB', fontWeight: 700 }}>
-          {inner}
-        </strong>
-      )
+    if (/^\$\$[\s\S]+?\$\$$/.test(part)) {
+      return renderMath(part.slice(2, -2), true, key)
     }
-    return <span key={`${keyPrefix}-s-${i}`}>{inner}</span>
+    if (/^\$[^$\n]+?\$$/.test(part)) {
+      return renderMath(part.slice(1, -1), false, key)
+    }
+    if (/^\*\*[^*]+\*\*$/.test(part)) {
+      const inner = applyTooltips(part.slice(2, -2), glossary, key)
+      return <strong key={`${key}-b`} style={{ color: '#00C2CB', fontWeight: 700 }}>{inner}</strong>
+    }
+
+    const inner = applyTooltips(part, glossary, key)
+    return <span key={`${key}-s`}>{inner}</span>
   })
 }
 

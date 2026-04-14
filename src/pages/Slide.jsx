@@ -10,8 +10,11 @@ import QuizPanel from '../components/slide/QuizPanel'
 import { ChevronRight, ChevronLeft, ChevronDown, ChevronUp, GraduationCap, X, Star, RefreshCw } from 'lucide-react'
 import { cn } from '../lib/utils'
 import ReactMarkdown from 'react-markdown'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
 import { useFavorites } from '../hooks/useFavorites'
 import SlideStatusPills from '../components/slide/SlideStatusPills'
+import { useSlideEnrichment } from '../hooks/useSlideEnrichment'
 
 function lectureKey(slide) {
   return slide?.file_url || slide?.file_name || `slide-${slide?.id}`
@@ -77,7 +80,7 @@ function CollapsibleOriginal({ text }) {
             className="overflow-hidden"
           >
             <div className="px-4 pb-4 pt-1 text-sm text-muted-foreground prose prose-sm max-w-none border-t border-border">
-              <ReactMarkdown>{text}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{text}</ReactMarkdown>
             </div>
           </motion.div>
         )}
@@ -107,7 +110,7 @@ function QuizModal({ slide, onClose }) {
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-5">
-          <QuizPanel slide={slide} />
+          <QuizPanel slide={enrichedSlide} />
         </div>
       </motion.div>
     </div>
@@ -167,6 +170,15 @@ export default function Slide() {
 
   const isPDF = slide?.file_url && (slide.file_name?.endsWith('.pdf') || slide.file_url?.includes('.pdf'))
   const starred = slide ? isFavorite(slide.id) : false
+
+  // Enrich slide text via vision AI (runs once, stores in DB, skips if done)
+  const { isEnriching } = useSlideEnrichment(slide)
+
+  // Use AI-extracted text when available, fall back to original
+  const enrichedSlide = useMemo(
+    () => slide ? { ...slide, original_text: slide.ai_extracted_text || slide.original_text } : slide,
+    [slide]
+  )
 
   // Keyboard navigation
   useEffect(() => {
@@ -307,6 +319,18 @@ export default function Slide() {
                 <SlideStatusPills slideId={slide.id} isFavorite={starred} />
               </div>
 
+              {/* Enrichment indicator */}
+              {isEnriching && (
+                <div className="px-4 py-1.5 border-b border-border bg-primary/5 flex items-center gap-2">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                    className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full shrink-0"
+                  />
+                  <span className="text-xs text-primary/70">Analyzing slide…</span>
+                </div>
+              )}
+
               {/* PDF iframe or text */}
               <div className="flex-1 overflow-hidden">
                 {isPDF && slide.file_url ? (
@@ -361,7 +385,7 @@ export default function Slide() {
 
             {/* Explanation section */}
             <div className="p-4 border-b border-border">
-              <ExplanationDisplay slide={slide} />
+              <ExplanationDisplay slide={enrichedSlide} />
 
               {/* Collapsible original content — per spec */}
               {slide.original_text && (
@@ -376,7 +400,7 @@ export default function Slide() {
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                 Follow-Up Questions
               </p>
-              <QuestionThread slide={slide} />
+              <QuestionThread slide={enrichedSlide} />
             </div>
 
           </div>

@@ -98,6 +98,9 @@ export default function UploadDialog({ onClose, defaultCourseId = '' }) {
   const progressLabel = {
     extracting: 'Extracting pages…',
     converting: 'Converting PPTX to PDF…',
+    scanning: progress.total
+      ? `Scanning slides with AI… (${progress.scanned}/${progress.total})`
+      : 'Scanning slides with AI…',
     uploading: 'Uploading file…',
     saving: 'Saving slides…',
     done: 'Done!',

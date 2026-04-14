@@ -9,4 +9,14 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    proxy: {
+      // Proxy Zamzar API calls through Vite dev server to avoid CORS
+      '/zamzar-api': {
+        target: 'https://api.zamzar.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/zamzar-api/, ''),
+      },
+    },
+  },
 })

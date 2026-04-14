@@ -94,23 +94,69 @@ async function chat(systemPrompt, userContent) {
   return res.choices[0]?.message?.content ?? ''
 }
 
+// ─── Vision-based slide text extraction (OCR fallback for upload pipeline) ────
+const OCR_SYSTEM_PROMPT = `You are an OCR assistant. Extract ALL visible text from this lecture slide image. Include:
+- Titles, headings, subheadings
+- Bullet points and body text
+- Text inside diagrams, figures, charts, and tables
+- Labels, captions, and annotations
+Return ONLY the raw extracted text, preserving the logical reading order. No commentary.`
+
+export async function extractTextFromSlideImage(imageDataUrl) {
+  const res = await withRetry(() => client.chat.completions.create({
+    model: MODEL,
+    messages: [
+      { role: 'system', content: OCR_SYSTEM_PROMPT },
+      {
+        role: 'user',
+        content: [{ type: 'image_url', image_url: { url: imageDataUrl } }],
+      },
+    ],
+  }))
+  return (res.choices[0]?.message?.content ?? '').trim()
+}
+
+// ─── Slide enrichment (runs on slide open, stored in DB) ─────────────────────
+const ENRICH_MODEL = 'google/gemma-4-26b-a4b-it'
+
+const ENRICH_SYSTEM_PROMPT = `You are an academic content extractor. Extract ALL important information from this lecture slide image.
+Include: main topic, key concepts and definitions, all bullet points and body text (verbatim), formulas or equations, text inside diagrams and charts, table contents, labels and captions.
+Return structured plain text. Be thorough — this will be used by a tutoring AI to explain, answer questions, and generate quizzes about this slide.`
+
+export async function extractSlideInfo(imageDataUrl) {
+  const res = await withRetry(() => client.chat.completions.create({
+    model: ENRICH_MODEL,
+    messages: [
+      { role: 'system', content: ENRICH_SYSTEM_PROMPT },
+      {
+        role: 'user',
+        content: [{ type: 'image_url', image_url: { url: imageDataUrl } }],
+      },
+    ],
+  }))
+  return (res.choices[0]?.message?.content ?? '').trim()
+}
+
 // ─── Explanation ──────────────────────────────────────────────────────────────
-const EXPLANATION_SYSTEM_PROMPT = `You are a bilingual academic tutor fluent in Arabic and English, specializing in explaining university-level course material to students whose primary language is Arabic. You will be given the text content from a university lecture slide. Explain the concepts in clear, natural Arabic. Every key English academic or technical term must remain in English and be wrapped in bold formatting. Do not translate technical terms into Arabic — instead, explain them in Arabic around the bolded English word. Write in flowing paragraph form, not bullet points. Keep the explanation between 4 and 6 sentences. End with one Arabic sentence summarizing the main takeaway of the slide. Do not add any information not present in the slide.`
+const EXPLANATION_SYSTEM_PROMPT = `You are a bilingual academic tutor fluent in Arabic and English, specializing in explaining university-level course material to students whose primary language is Arabic. You will be given the text content from a university lecture slide. Explain the concepts in clear, natural Arabic. Every key English academic or technical term must remain in English and be wrapped in bold formatting. Do not translate technical terms into Arabic — instead, explain them in Arabic around the bolded English word. Write in flowing paragraph form, not bullet points. Keep the explanation between 4 and 6 sentences. End with one Arabic sentence summarizing the main takeaway of the slide. Do not add any information not present in the slide. Render any mathematical expressions using LaTeX notation (e.g. $V_{emf}$ for inline, $$E=mc^2$$ for block).`
 
 export async function generateExplanation(slideText, onChunk) {
   return streamChat(EXPLANATION_SYSTEM_PROMPT, slideText, onChunk)
 }
 
 // ─── Q&A ──────────────────────────────────────────────────────────────────────
-const QA_SYSTEM_PROMPT = `You are a bilingual academic tutor fluent in Arabic and English. Answer student follow-up questions about university lecture slides in clear, natural Arabic.
+const QA_SYSTEM_PROMPT = `You are a bilingual academic tutor fluent in Arabic and English. Answer student follow-up questions using ONLY the information present in the provided slide content. Do not use outside knowledge.
+
+If the answer is not found in the slide content, respond in Arabic: "هذه المعلومة غير موجودة في الشريحة." and stop.
 
 Formatting rules:
 - Always start with a bold direct answer on its own line: **الجواب:** one sentence.
-- If the answer is a single fact, follow with 1–2 sentences of context. Stop there.
+- If the answer is a single fact, follow with 1–2 sentences of context from the slide. Stop there.
 - If the answer has multiple parts or steps, follow the direct answer with a short numbered list (max 4 items).
 - Never exceed 5 lines total.
 - Every key English academic or technical term must remain in English wrapped in **bold**.
-- Do not translate technical terms into Arabic.`
+- Do not translate technical terms into Arabic.
+- Render any mathematical expressions using LaTeX notation (e.g. $V_{emf}$).`
 
 export async function answerQuestion(slideText, question, history = [], onChunk) {
   const historyStr = history
