@@ -24,7 +24,10 @@ export default function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/reset-password" element={<ResetPassword />} />
-              <Route element={<ProtectedRoute />}>
+              <Route element={<ProtectedRoute />} 
+              >
+
+                
                 <Route element={<AppLayout />}>
                   <Route index element={<Dashboard />} />
                   <Route path="course/:courseId" element={<Course />} />
