@@ -1,4 +1,11 @@
-// ─── Vercel Serverless Function — PPTX → PDF via Zamzar ──────────────────────
+// ─── Vercel Serverless — Zamzar proxy (3 fast actions, no polling on server) ─
+// The browser calls each endpoint separately so no single function exceeds the
+// Vercel Hobby timeout of 60s:
+//
+//   POST /api/convert-pptx                  → submit job, returns { jobId }
+//   GET  /api/convert-pptx?jobId=<id>       → check status, returns { status, fileId? }
+//   GET  /api/convert-pptx?fileId=<id>      → stream PDF bytes
+
 export const config = { runtime: 'nodejs' }
 
 const ZAMZAR_API_KEY =
@@ -11,14 +18,25 @@ function zamzarAuth() {
   return 'Basic ' + Buffer.from(ZAMZAR_API_KEY + ':').toString('base64')
 }
 
-function errorJson(message, status = 500) {
-  return new Response(JSON.stringify({ error: message }), {
+function json(body, status = 200) {
+  return new Response(JSON.stringify(body), {
     status,
     headers: { 'Content-Type': 'application/json' },
   })
 }
 
-async function zamzarSubmitJob(file) {
+// ─── POST: submit conversion job ──────────────────────────────────────────────
+async function handleSubmit(request) {
+  let formData
+  try {
+    formData = await request.formData()
+  } catch {
+    return json({ error: 'Invalid multipart form data' }, 400)
+  }
+
+  const file = formData.get('file')
+  if (!(file instanceof File)) return json({ error: 'file field is required' }, 400)
+
   const form = new FormData()
   form.append('source_file', file, file.name)
   form.append('target_format', 'pdf')
@@ -31,78 +49,74 @@ async function zamzarSubmitJob(file) {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    const msg =
-      body?.errors?.[0]?.message ||
-      body?.message ||
-      `Zamzar job creation failed (${res.status})`
-    throw new Error(msg)
+    return json(
+      { error: body?.errors?.[0]?.message || `Zamzar submit failed (${res.status})` },
+      res.status
+    )
   }
 
-  return res.json()
+  const job = await res.json()
+  return json({ jobId: job.id, status: job.status })
 }
 
-async function zamzarPollJob(jobId, maxWaitMs = 120_000, intervalMs = 3_000) {
-  const deadline = Date.now() + maxWaitMs
+// ─── GET ?jobId=X: check status ───────────────────────────────────────────────
+async function handleStatus(jobId) {
+  const res = await fetch(`${ZAMZAR_BASE}/jobs/${jobId}`, {
+    headers: { Authorization: zamzarAuth() },
+  })
 
-  while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, intervalMs))
-
-    const res = await fetch(`${ZAMZAR_BASE}/jobs/${jobId}`, {
-      headers: { Authorization: zamzarAuth() },
-    })
-    if (!res.ok) throw new Error(`Zamzar status check failed (${res.status})`)
-
-    const job = await res.json()
-    if (job.status === 'successful') return job
-    if (job.status === 'failed') {
-      const detail = job.errors?.length ? ': ' + job.errors[0].message : ''
-      throw new Error(`Zamzar conversion failed${detail}`)
-    }
+  if (!res.ok) {
+    return json({ error: `Zamzar status check failed (${res.status})` }, res.status)
   }
 
-  throw new Error('Zamzar conversion timed out')
+  const job = await res.json()
+
+  if (job.status === 'successful') {
+    const fileId = job.target_files?.[0]?.id
+    if (!fileId) return json({ error: 'No output file returned' }, 500)
+    return json({ status: 'successful', fileId })
+  }
+
+  if (job.status === 'failed') {
+    const detail = job.errors?.length ? job.errors[0].message : 'conversion failed'
+    return json({ status: 'failed', error: detail })
+  }
+
+  return json({ status: job.status ?? 'pending' })
 }
 
-async function zamzarDownload(fileId) {
+// ─── GET ?fileId=X: stream PDF ────────────────────────────────────────────────
+async function handleDownload(fileId) {
   const res = await fetch(`${ZAMZAR_BASE}/files/${fileId}/content`, {
     headers: { Authorization: zamzarAuth() },
   })
-  if (!res.ok) throw new Error(`Zamzar download failed (${res.status})`)
-  return res.arrayBuffer()
-}
 
-export default async function handler(request) {
-  if (request.method !== 'POST') return errorJson('Method not allowed', 405)
-
-  let formData
-  try {
-    formData = await request.formData()
-  } catch {
-    return errorJson('Invalid multipart form data', 400)
+  if (!res.ok) {
+    return json({ error: `Zamzar download failed (${res.status})` }, res.status)
   }
 
-  const file = formData.get('file')
-  if (!(file instanceof File)) return errorJson('file field is required', 400)
+  return new Response(res.body, {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/pdf',
+      'Cache-Control': 'no-store',
+    },
+  })
+}
 
+// ─── Router ───────────────────────────────────────────────────────────────────
+export default async function handler(request) {
   try {
-    const job = await zamzarSubmitJob(file)
-    const completedJob = await zamzarPollJob(job.id)
+    const url = new URL(request.url)
+    const jobId = url.searchParams.get('jobId')
+    const fileId = url.searchParams.get('fileId')
 
-    const fileId = completedJob.target_files?.[0]?.id
-    if (!fileId) throw new Error('Zamzar succeeded but returned no output file')
+    if (request.method === 'POST') return handleSubmit(request)
+    if (request.method === 'GET' && jobId) return handleStatus(jobId)
+    if (request.method === 'GET' && fileId) return handleDownload(fileId)
 
-    const pdfBytes = await zamzarDownload(fileId)
-    const baseName = file.name.replace(/\.pptx$/i, '') || 'presentation'
-
-    return new Response(pdfBytes, {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Cache-Control': 'no-store',
-        'Content-Disposition': `inline; filename="${baseName}.pdf"`,
-      },
-    })
+    return json({ error: 'Invalid request. Use POST to submit, GET ?jobId=X for status, GET ?fileId=X for download.' }, 400)
   } catch (err) {
-    return errorJson(err?.message || 'Conversion failed', 500)
+    return json({ error: err?.message || 'Internal error' }, 500)
   }
 }

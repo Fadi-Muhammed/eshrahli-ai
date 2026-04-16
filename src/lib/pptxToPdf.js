@@ -79,20 +79,62 @@ async function convertViaDev(file) {
   return new File([blob], `${baseName}.pdf`, { type: 'application/pdf' })
 }
 
-// ─── Prod path: Vercel serverless function ────────────────────────────────────
+// ─── Prod path: Vercel serverless function (3 fast calls, browser polls) ─────
+// The Vercel Hobby plan caps functions at 60s, so we split submit/poll/download
+// across three calls instead of doing them all server-side.
 
-async function convertViaProd(file) {
+async function vercelSubmitJob(file) {
   const form = new FormData()
   form.append('file', file, file.name)
 
   const res = await fetch(VERCEL_CONVERTER, { method: 'POST', body: form })
-
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new Error(body?.error || body?.message || `Converter error (${res.status})`)
+    throw new Error(body?.error || body?.message || `Converter submit failed (${res.status})`)
   }
 
-  const blob = await res.blob()
+  const { jobId } = await res.json()
+  if (!jobId) throw new Error('Converter did not return a jobId')
+  return jobId
+}
+
+async function vercelPollJob(jobId, maxWaitMs = 180_000, intervalMs = 3_000) {
+  const deadline = Date.now() + maxWaitMs
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, intervalMs))
+
+    const res = await fetch(`${VERCEL_CONVERTER}?jobId=${encodeURIComponent(jobId)}`)
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body?.error || `Converter status check failed (${res.status})`)
+    }
+
+    const data = await res.json()
+    console.info('[PPTX→PDF] Vercel job status', { jobId, status: data.status })
+
+    if (data.status === 'successful' && data.fileId) return data.fileId
+    if (data.status === 'failed') {
+      throw new Error(data.error ? `Conversion failed: ${data.error}` : 'Conversion failed')
+    }
+  }
+  throw new Error('Conversion timed out after 3 minutes')
+}
+
+async function vercelDownload(fileId) {
+  const res = await fetch(`${VERCEL_CONVERTER}?fileId=${encodeURIComponent(fileId)}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body?.error || `Converter download failed (${res.status})`)
+  }
+  return res.blob()
+}
+
+async function convertViaProd(file) {
+  const jobId = await vercelSubmitJob(file)
+  console.info('[PPTX→PDF] Vercel job created', { jobId })
+
+  const fileId = await vercelPollJob(jobId)
+  const blob = await vercelDownload(fileId)
   if (!blob || blob.size === 0) throw new Error('Converter returned an empty PDF')
 
   const baseName = file.name.replace(/\.pptx$/i, '') || 'presentation'
