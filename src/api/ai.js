@@ -182,10 +182,10 @@ export async function generateGlossary(text) {
 
 // ─── Quiz — 4 parallel calls, staggered, with silent per-question retry ───────
 const ASPECT_HINTS = [
-  'Focus on the core definition or main concept of the slide.',
-  'Focus on a practical application or real-world example.',
-  'Focus on a comparison, difference, or relationship between concepts.',
-  'Focus on a cause, effect, process step, or consequence.',
+  'ركز على التعريف الأساسي أو المفهوم الرئيسي في الشريحة.',
+  'ركز على تطبيق عملي أو مثال من الواقع.',
+  'ركز على مقارنة أو فرق أو علاقة بين المفاهيم.',
+  'ركز على السبب أو النتيجة أو خطوات العملية أو التأثير.',
 ]
 
 // Validate the parsed object has the required shape
