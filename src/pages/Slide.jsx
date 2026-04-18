@@ -110,7 +110,7 @@ function QuizModal({ slide, onClose }) {
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-5">
-          <QuizPanel slide={enrichedSlide} />
+          <QuizPanel slide={slide} />
         </div>
       </motion.div>
     </div>
@@ -410,7 +410,7 @@ export default function Slide() {
 
       {/* Quiz modal */}
       <AnimatePresence>
-        {quizOpen && <QuizModal slide={slide} onClose={() => setQuizOpen(false)} />}
+        {quizOpen && <QuizModal slide={enrichedSlide} onClose={() => setQuizOpen(false)} />}
       </AnimatePresence>
     </div>
   )
