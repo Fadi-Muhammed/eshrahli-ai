@@ -1,5 +1,5 @@
 # React + Vite
-Khaled's Fork V1
+Khaled's Fork V2
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
