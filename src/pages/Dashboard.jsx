@@ -54,6 +54,8 @@ export default function Dashboard() {
         <div className="flex gap-2">
           <button
             onClick={() => setUploadOpen(true)}
+            title="PPTX/PDF"
+            aria-label="Upload PPTX or PDF"
             className="flex items-center gap-2 border border-border bg-card px-4 py-2 rounded-lg text-sm font-medium hover:bg-muted transition-colors"
           >
             <Upload size={15} />
@@ -97,13 +99,6 @@ export default function Dashboard() {
               >
                 <Plus size={15} />
                 {t('newCourse')}
-              </button>
-              <button
-                onClick={() => setUploadOpen(true)}
-                className="flex items-center gap-2 border border-border bg-card px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-muted transition-colors"
-              >
-                <Upload size={15} />
-                Upload PDF/PPTX
               </button>
             </div>
           </motion.div>
