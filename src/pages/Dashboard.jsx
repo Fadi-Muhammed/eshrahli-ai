@@ -50,11 +50,6 @@ export default function Dashboard() {
 
   return (
     <div>
-      {/* Banner */}
-      <div className="mb-6">
-        <img src="/banner_long.png" alt="Eshrahli" className="w-full rounded-xl border border-border shadow-sm" />
-      </div>
-
       {/* Page header */}
       <div className="flex items-center justify-between mb-6">
         <div>
