@@ -202,7 +202,7 @@ export default function UploadDialog({ onClose, defaultCourseId = '' }) {
                           <Upload size={22} className="text-primary" />
                         </div>
                         <p className="font-medium text-sm text-foreground">Drop your file here</p>
-                        <p className="text-xs text-muted-foreground">PPTX preferred · PDF fallback · max 50 MB</p>
+                        <p className="text-xs text-muted-foreground">PDF preferred · PPTX fallback · max 50 MB</p>
                       </motion.div>
                     )}
                   </AnimatePresence>
