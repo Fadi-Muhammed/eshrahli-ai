@@ -75,14 +75,16 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 sm:p-8">
-      <div className="w-full max-w-4xl rounded-2xl border border-border bg-card p-6 shadow-sm dark:shadow-black/30 sm:p-10">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-8">
+      <div className="w-full max-w-3xl rounded-2xl border border-border bg-card p-6 shadow-sm dark:shadow-black/30 sm:p-10">
 
-        {/* Header with banner */}
-        <div className="mb-6">
-          <img src="/banner_short.png" alt="Eshrahli" className="w-full max-w-lg mx-auto mb-6" />
-          <p className="text-center text-lg font-semibold text-primary">
-            Learn any slide in your maternal language, get straight As with quizzes and more
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-5xl">
+            Welcome to Eshrahli
+          </h1>
+          <p className="mt-4 max-w-2xl text-base leading-relaxed text-foreground/80 sm:text-lg">
+            Your AI-powered learning assistant for understanding university material in Arabic.
           </p>
         </div>
 
@@ -241,67 +243,6 @@ export default function Login() {
             </button>
           </p>
         )}
-
-        {/* Marketing section */}
-        <div className="mt-8 pt-8 border-t border-border">
-          <div className="text-center mb-6">
-            <h2 className="text-xl font-bold text-primary mb-2">
-              Struggling to keep up with English textbooks and lecture slides?
-            </h2>
-            <p className="text-muted-foreground text-sm">You're not alone.</p>
-          </div>
-
-          <div className="bg-secondary/45 rounded-xl p-5 mb-6">
-            <p className="text-sm text-foreground/80 leading-relaxed mb-4">
-              Thousands of Arabic-speaking students face the same challenge: studying in English while thinking in Arabic.
-            </p>
-            <p className="text-sm text-foreground/80 leading-relaxed">
-              Eshrahli AI bridges this gap completely. Get instant Arabic translations and explanations for every slide you upload, making complex concepts crystal clear in your native language.
-            </p>
-          </div>
-
-          <div className="mb-6">
-            <h3 className="font-semibold text-primary text-center mb-4">What You Get:</h3>
-            <ul className="space-y-2 text-sm text-foreground/80">
-              <li className="flex items-start gap-2">
-                <span className="text-primary font-bold">•</span>
-                <span><strong>Instant Arabic Explanations</strong> - Every slide translated and explained in clear, simple Arabic while keeping keywords in English to improve your vocabulary</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary font-bold">•</span>
-                <span><strong>Smart Quiz Generator</strong> - AI-powered quizzes in Arabic to test your knowledge and boost retention</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary font-bold">•</span>
-                <span><strong>Straight A Support</strong> - Instant support for any problem you might face using the app</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary font-bold">•</span>
-                <span><strong>24/7 Learning in Your Language</strong> - Study whenever you want, in the language that makes sense to you</span>
-              </li>
-            </ul>
-          </div>
-
-          <div className="bg-primary/10 border border-primary/20 rounded-xl p-5 text-center">
-            <p className="text-sm text-foreground/80 mb-3">
-              Stop translating word-by-word. Stop feeling lost in class. Join the other UDST students who've already transformed their academic performance.
-            </p>
-            <p className="text-xs font-semibold text-primary">
-              Made by UDST students for UDST students with love &lt;3
-            </p>
-          </div>
-
-          <div className="mt-4 text-center">
-            <p className="text-xs text-muted-foreground">
-              If you face any issue, we will solve within 24 hours!
-              <br />
-              Simply contact me on WhatsApp:{' '}
-              <a href="https://wa.me/97450313534" className="text-primary hover:underline font-medium">
-                +974 50313534
-              </a>
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   )
