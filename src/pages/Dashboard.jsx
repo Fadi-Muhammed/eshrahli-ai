@@ -54,8 +54,8 @@ export default function Dashboard() {
         <div className="flex gap-2">
           <button
             onClick={() => setUploadOpen(true)}
-            title="PPTX/PDF"
-            aria-label="Upload PPTX or PDF"
+            title="PDF/PPTX"
+            aria-label="Upload PDF or PPTX"
             className="flex items-center gap-2 border border-border bg-card px-4 py-2 rounded-lg text-sm font-medium hover:bg-muted transition-colors"
           >
             <Upload size={15} />
@@ -92,10 +92,10 @@ export default function Dashboard() {
           >
             <h2 className="text-xl font-semibold text-primary mb-2">{t('noCoursesYet')}</h2>
             <p className="text-primary/80 text-sm mb-6">{t('simpleDashboardEmptyDescription')}</p>
-            <div className="flex justify-center gap-3 flex-wrap">
+            <div className="flex justify-center gap-3 flex-wrap w-full">
               <button
                 onClick={() => setCreateOpen(true)}
-                className="rainbow-glow-button flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-lg text-sm font-medium hover:opacity-90 transition-all active:scale-95"
+                className="rainbow-glow-button w-full sm:w-[85%] flex items-center justify-center gap-2 bg-primary text-primary-foreground px-6 py-3.5 rounded-lg text-base font-semibold hover:opacity-90 transition-all active:scale-95"
               >
                 <Plus size={15} />
                 {t('newCourse')}
