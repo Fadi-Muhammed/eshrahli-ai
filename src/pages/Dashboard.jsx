@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Upload } from 'lucide-react'
 import { useCourses } from '../hooks/useCourses'
@@ -7,7 +7,6 @@ import { useLanguage } from '../components/LanguageContext'
 import CourseCard from '../components/dashboard/CourseCard'
 import CreateCourseDialog from '../components/dashboard/CreateCourseDialog'
 import UploadDialog from '../components/dashboard/UploadDialog'
-import DefaultCoursesDialog from '../components/dashboard/DefaultCoursesDialog'
 
 function CourseCardWithCount({ course, index }) {
   const { data: slides } = useSlides(course.id)
@@ -40,13 +39,7 @@ export default function Dashboard() {
   const { data: courses, isLoading, error } = useCourses()
   const [createOpen, setCreateOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
-  const [starterOpen, setStarterOpen] = useState(false)
-
-  useEffect(() => {
-    if (!isLoading && !error && courses?.length === 0) {
-      setStarterOpen(true)
-    }
-  }, [courses, isLoading, error])
+  const hasNoCourses = !isLoading && !error && (courses?.length ?? 0) === 0
 
   return (
     <div>
@@ -68,7 +61,7 @@ export default function Dashboard() {
           </button>
           <button
             onClick={() => setCreateOpen(true)}
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-all active:scale-95"
+            className={`flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-all active:scale-95 ${hasNoCourses ? 'rainbow-glow-button' : ''}`}
           >
             <Plus size={15} />
             {t('newCourse')}
@@ -99,10 +92,11 @@ export default function Dashboard() {
             <p className="text-primary/80 text-sm mb-6">{t('simpleDashboardEmptyDescription')}</p>
             <div className="flex justify-center gap-3 flex-wrap">
               <button
-                onClick={() => setStarterOpen(true)}
-                className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-lg text-sm font-medium hover:opacity-90 transition-all active:scale-95"
+                onClick={() => setCreateOpen(true)}
+                className="rainbow-glow-button flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-lg text-sm font-medium hover:opacity-90 transition-all active:scale-95"
               >
-                {t('chooseStarterCourses')}
+                <Plus size={15} />
+                {t('newCourse')}
               </button>
               <button
                 onClick={() => setUploadOpen(true)}
@@ -127,7 +121,6 @@ export default function Dashboard() {
       <AnimatePresence>
         {createOpen && <CreateCourseDialog onClose={() => setCreateOpen(false)} />}
         {uploadOpen && <UploadDialog onClose={() => setUploadOpen(false)} />}
-        {starterOpen && courses?.length === 0 && <DefaultCoursesDialog onClose={() => setStarterOpen(false)} />}
       </AnimatePresence>
     </div>
   )
