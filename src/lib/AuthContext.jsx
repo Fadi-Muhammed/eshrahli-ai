@@ -3,6 +3,11 @@ import { supabase } from '../api/supabaseClient'
 
 const AuthContext = createContext(null)
 
+function getRedirectOrigin() {
+  if (typeof window === 'undefined') return 'http://localhost:5173'
+  return import.meta.env.DEV ? 'http://localhost:5173' : window.location.origin
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -31,18 +36,20 @@ export function AuthProvider({ children }) {
   }
 
   const signInWithGoogle = async () => {
+    const redirectOrigin = getRedirectOrigin()
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo: `${redirectOrigin}/`,
       },
     })
     if (error) throw error
   }
 
   const resetPassword = async (email) => {
+    const redirectOrigin = getRedirectOrigin()
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${redirectOrigin}/reset-password`,
     })
     if (error) throw error
   }

@@ -5,6 +5,19 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>eshrahli-ai</title>
+    <script>
+      (function () {
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        if (isLocal) {
+          document.documentElement.classList.remove('dark')
+          return
+        }
+        const theme = localStorage.getItem('theme')
+        if (theme !== 'dark') {
+          document.documentElement.classList.remove('dark')
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -3,11 +3,17 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 const THEME_KEY = 'theme'
 const ThemeContext = createContext(null)
 
+function isLocalhost() {
+  if (typeof window === 'undefined') return false
+  return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+}
+
 function resolveInitialTheme() {
   if (typeof window === 'undefined') return 'light'
+  if (isLocalhost()) return 'light'
   const stored = localStorage.getItem(THEME_KEY)
   if (stored === 'light' || stored === 'dark') return stored
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  return 'light'
 }
 
 export function ThemeProvider({ children }) {
