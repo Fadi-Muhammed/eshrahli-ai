@@ -127,14 +127,14 @@
     border-radius: inherit;
     background: linear-gradient(
       110deg,
-      #ff4d4d,
-      #ff9f43,
-      #ffd93d,
-      #4cd137,
-      #00d2d3,
-      #1e90ff,
-      #9b59b6,
-      #ff4d4d
+      #ff7a7a,
+      #ffba73,
+      #ffe67a,
+      #74df74,
+      #5ee7e8,
+      #63adff,
+      #ba84d1,
+      #ff7a7a
     );
     background-size: 220% 220%;
     animation: rainbow-shift 2.8s linear infinite;
