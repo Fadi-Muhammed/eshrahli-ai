@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 const STORAGE_KEY = 'eshrahli:favorites:v1'
+const FAVORITES_UPDATED_EVENT = 'eshrahli:favorites:updated'
 
 function readFavoriteIds() {
   try {
@@ -14,6 +15,7 @@ function readFavoriteIds() {
 
 function writeFavoriteIds(ids) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(ids))
+  window.dispatchEvent(new CustomEvent(FAVORITES_UPDATED_EVENT, { detail: ids }))
 }
 
 export function useFavorites() {
@@ -23,8 +25,19 @@ export function useFavorites() {
     const onStorage = (event) => {
       if (event.key === STORAGE_KEY) setFavoriteIds(readFavoriteIds())
     }
+
+    const onFavoritesUpdated = (event) => {
+      const ids = Array.isArray(event.detail) ? event.detail : readFavoriteIds()
+      setFavoriteIds(ids.filter((id) => typeof id === 'string'))
+    }
+
     window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
+    window.addEventListener(FAVORITES_UPDATED_EVENT, onFavoritesUpdated)
+
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener(FAVORITES_UPDATED_EVENT, onFavoritesUpdated)
+    }
   }, [])
 
   const favoriteIdSet = useMemo(() => new Set(favoriteIds), [favoriteIds])
