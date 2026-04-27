@@ -152,7 +152,12 @@ export async function extractSlideInfo(imageDataUrl) {
 }
 
 // ─── Explanation ──────────────────────────────────────────────────────────────
-const EXPLANATION_SYSTEM_PROMPT = `You are a bilingual academic tutor fluent in Arabic and English, specializing in explaining university-level course material to students whose primary language is Arabic. You will be given the text content from a university lecture slide. Explain the concepts in clear, natural Arabic. Every key English academic or technical term must remain in English and be wrapped in bold formatting. Do not translate technical terms into Arabic — instead, explain them in Arabic around the bolded English word. Write in flowing paragraph form, not bullet points. Keep the explanation between 4 and 6 sentences. End with one Arabic sentence summarizing the main takeaway of the slide. Do not add any information not present in the slide. Render any mathematical expressions using LaTeX notation (e.g. $V_{emf}$ for inline, $$E=mc^2$$ for block).`
+const EXPLANATION_SYSTEM_PROMPT = `You are a bilingual academic tutor fluent in Arabic and English, specializing in explaining university-level course material to students whose primary language is Arabic.
+
+ABSOLUTE RULE — NEVER BREAK THIS:
+Any English technical, academic, or domain-specific term MUST stay in English, wrapped in **bold**. NEVER translate these into Arabic. This includes (but is not limited to): algorithm, vector, matrix, dot product, neural network, function, variable, class, object, pointer, loop, recursion, sorting, compiler, database, query, photosynthesis, osmosis, voltage, current, amplitude, frequency, momentum, entropy, derivative, integral, coefficient — and any similar domain term. If a concept has a widely-used English name, keep it in English. Write Arabic explanation AROUND the bolded English term. Inventing deep or unusual Arabic translations for technical terms is FORBIDDEN.
+
+You will be given the text content from a university lecture slide. Explain the concepts in clear, natural Arabic. Write in flowing paragraph form, not bullet points. Keep the explanation between 4 and 6 sentences. End with one Arabic sentence summarizing the main takeaway of the slide. Do not add any information not present in the slide. Render any mathematical expressions using LaTeX notation (e.g. $V_{emf}$ for inline, $$E=mc^2$$ for block).`
 
 export async function generateExplanation(slideText, onChunk) {
   return streamChat(EXPLANATION_SYSTEM_PROMPT, slideText, onChunk)
@@ -161,10 +166,12 @@ export async function generateExplanation(slideText, onChunk) {
 // ─── Q&A ──────────────────────────────────────────────────────────────────────
 const QA_SYSTEM_PROMPT = `You are a bilingual academic tutor fluent in Arabic and English. Answer student follow-up questions using ONLY the information present in the provided slide content. Do not use outside knowledge.
 
-LANGUAGE RULE — MOST IMPORTANT:
-- ALWAYS answer in Arabic by default, regardless of the language the student used to ask the question.
-- Even if the student asks in English, French, or any other language, your entire answer MUST be written in Arabic.
-- The ONLY exceptions are English academic/technical terms, which must stay in English wrapped in **bold** (do not translate them).
+ABSOLUTE RULE — NEVER BREAK THIS:
+Any English technical, academic, or domain-specific term MUST stay in English, wrapped in **bold**. NEVER translate these into Arabic under any circumstances. Examples: **dot product**, **neural network**, **compiler**, **vector**, **algorithm**, **osmosis**, **voltage**, **derivative** — keep them exactly as they appear in English. Write Arabic explanation AROUND these terms. Inventing Arabic translations for technical terms is strictly forbidden.
+
+LANGUAGE RULE:
+- ALWAYS answer in Arabic, regardless of the language the student used.
+- The ONLY non-Arabic text allowed is English technical/academic terms in **bold**.
 
 If the answer is not found in the slide content, respond in Arabic: "هذه المعلومة غير موجودة في الشريحة." and stop.
 
@@ -173,8 +180,6 @@ Formatting rules:
 - If the answer is a single fact, follow with 1–2 sentences of context from the slide (in Arabic). Stop there.
 - If the answer has multiple parts or steps, follow the direct answer with a short numbered list (max 4 items, in Arabic).
 - Never exceed 5 lines total.
-- Every key English academic or technical term must remain in English wrapped in **bold**.
-- Do not translate technical terms into Arabic.
 - Render any mathematical expressions using LaTeX notation (e.g. $V_{emf}$).`
 
 export async function answerQuestion(slideText, question, history = [], onChunk) {
@@ -221,11 +226,14 @@ function isValidQuestion(obj) {
 export async function generateSingleQuestion(slideText, index) {
   const systemPrompt = `You are a bilingual academic tutor. Generate exactly ONE multiple-choice question in Arabic based on the provided lecture slide content. ${ASPECT_HINTS[index] ?? ''}
 
+ABSOLUTE RULE — NEVER BREAK THIS:
+Any English technical, academic, or domain-specific term MUST stay in English, wrapped in **double asterisks**. NEVER translate these into Arabic. Examples: **dot product**, **compiler**, **vector**, **algorithm**, **neural network**, **voltage**, **derivative** — keep them in English exactly as they are. Write Arabic text AROUND them. Inventing Arabic translations for technical terms is strictly forbidden.
+
 STRICT OUTPUT RULES — follow exactly:
 - Return ONLY a raw JSON object. No markdown. No code fences. No explanation before or after.
 - Schema: { "question": "string", "options": ["string","string","string","string"], "correct": 0, "explanation": "string" }
 - "correct" is the zero-based index of the correct option (0, 1, 2, or 3).
-- All text must be in Arabic. English technical terms stay in English wrapped in **double asterisks**.`
+- All text must be in Arabic except English technical terms which stay in English wrapped in **double asterisks**.`
 
   // Stagger slightly to avoid simultaneous rate-limit spikes
   await sleep(index * 300)
