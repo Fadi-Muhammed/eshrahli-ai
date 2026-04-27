@@ -174,11 +174,12 @@ export default function Slide() {
   // Enrich slide text via vision AI (runs once, stores in DB, skips if done)
   const { isEnriching } = useSlideEnrichment(slide)
 
-  // Use AI-extracted text when available, fall back to original
-  const enrichedSlide = useMemo(
-    () => slide ? { ...slide, original_text: slide.ai_extracted_text || slide.original_text } : slide,
-    [slide]
-  )
+  // Combine both AI-extracted text and original text so the AI has all available information
+  const enrichedSlide = useMemo(() => {
+    if (!slide) return slide
+    const parts = [slide.ai_extracted_text, slide.original_text].filter(Boolean)
+    return { ...slide, original_text: parts.join('\n\n') }
+  }, [slide])
 
   // Keyboard navigation
   useEffect(() => {
