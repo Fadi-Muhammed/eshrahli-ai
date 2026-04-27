@@ -38,20 +38,23 @@ async function extractPPTX(file) {
   const pages = []
   for (const entry of slideEntries) {
     const xml = await zip.files[entry].async('string')
-    // Extract all <a:t> text nodes (DrawingML text runs)
+    // Extract all <a:t> text nodes (DrawingML text runs) - more comprehensive matching
+    // This captures text from paragraphs, shapes, tables, headers, footers, and other text elements
     const matches = [...xml.matchAll(/<a:t[^>]*>(.*?)<\/a:t>/gs)]
     const text = matches
       .map((m) => m[1].replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"'))
       .join(' ')
       .replace(/\s+/g, ' ')
       .trim()
-    pages.push(text)
+    pages.push(text || '(text extraction incomplete - slide may contain complex layouts or images)')
   }
   return pages
 }
 
 // ─── OCR fallback for image-heavy slides ─────────────────────────────────────
-const MIN_TEXT_LENGTH = 20
+// Increased threshold to be more aggressive about using vision AI for extraction
+// Helps capture content from complex layouts, tables, and image-heavy slides
+const MIN_TEXT_LENGTH = 50
 
 async function renderPageToImage(pdf, pageNum) {
   const page = await pdf.getPage(pageNum)

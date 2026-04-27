@@ -8,7 +8,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).href
 
-export async function renderSlideToImage(pdfUrl, pageNumber, scale = 1.5) {
+export async function renderSlideToImage(pdfUrl, pageNumber, scale = 2.0) {
   const pdf = await pdfjsLib.getDocument({ url: pdfUrl, verbosity: 0 }).promise
   const page = await pdf.getPage(pageNumber)
   const viewport = page.getViewport({ scale })
@@ -17,9 +17,14 @@ export async function renderSlideToImage(pdfUrl, pageNumber, scale = 1.5) {
   canvas.width = viewport.width
   canvas.height = viewport.height
 
-  await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Failed to get canvas context for slide rendering')
 
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.82)
+  await page.render({ canvasContext: ctx, viewport }).promise
+
+  // Higher quality JPEG (0.92 instead of 0.82) to reduce compression artifacts
+  // and improve text readability for vision AI extraction
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.92)
 
   // Free memory
   canvas.width = 0

@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS slides (
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   slide_number INTEGER NOT NULL,
   original_text TEXT,
+  ai_extracted_text TEXT,
+  enrichment_status TEXT DEFAULT 'pending',
   file_name TEXT,
   file_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()

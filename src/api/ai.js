@@ -119,9 +119,23 @@ export async function extractTextFromSlideImage(imageDataUrl) {
 // ─── Slide enrichment (runs on slide open, stored in DB) ─────────────────────
 const ENRICH_MODEL = 'google/gemma-4-26b-a4b-it'
 
-const ENRICH_SYSTEM_PROMPT = `You are an academic content extractor. Extract ALL important information from this lecture slide image.
-Include: main topic, key concepts and definitions, all bullet points and body text (verbatim), formulas or equations, text inside diagrams and charts, table contents, labels and captions.
-Return structured plain text. Be thorough — this will be used by a tutoring AI to explain, answer questions, and generate quizzes about this slide.`
+const ENRICH_SYSTEM_PROMPT = `You are an academic content extractor. Extract EVERY SINGLE piece of visible text from this lecture slide image, not just "important" content.
+
+CRITICAL: Extract ALL text including:
+- ALL titles, headings, and subheadings
+- ALL bullet points, numbered lists, and their content (verbatim)
+- ALL body text and paragraphs
+- ALL labels, captions, and annotations
+- ALL text inside diagrams, flowcharts, and visual elements
+- ALL table contents (headers, data, footnotes)
+- ALL chart/graph labels and legends
+- ALL text in boxes, callouts, or special formatting
+- Mathematical formulas and equations (use LaTeX notation)
+- Any text in the margins, headers, or footers
+
+Preserve the logical structure and reading order. If content appears in columns, preserve that. If there are numbered steps or hierarchies, maintain that structure.
+
+Return the extracted text in plain text format, organized by visual layout. Be EXHAUSTIVE — capture everything visible, even if it seems redundant. This will be used by a tutoring AI to answer student questions accurately. If you miss content, students will get "information not found in slide" errors.`
 
 export async function extractSlideInfo(imageDataUrl) {
   const res = await withRetry(() => client.chat.completions.create({

@@ -13,30 +13,58 @@ export function useSlideEnrichment(slide) {
   const [isEnriching, setIsEnriching] = useState(false)
 
   useEffect(() => {
-    // Skip if no slide, no PDF URL, or already enriched
-    if (!slide?.id || !slide?.file_url || slide?.ai_extracted_text) return
+    // Skip if no slide, no PDF URL, already enriched, or enrichment failed
+    if (!slide?.id || !slide?.file_url) return
+    if (slide?.ai_extracted_text || slide?.enrichment_status === 'failed') return
 
     let cancelled = false
 
     async function enrich() {
       setIsEnriching(true)
       try {
+        // Mark as in-progress
+        await supabase
+          .from('slides')
+          .update({ enrichment_status: 'in_progress' })
+          .eq('id', slide.id)
+
         const imageDataUrl = await renderSlideToImage(slide.file_url, slide.slide_number)
         if (cancelled) return
 
         const extractedText = await extractSlideInfo(imageDataUrl)
-        if (cancelled || !extractedText) return
+        if (cancelled) return
 
-        await supabase
-          .from('slides')
-          .update({ ai_extracted_text: extractedText })
-          .eq('id', slide.id)
+        // Only update if we got meaningful content
+        if (extractedText && extractedText.trim().length > 0) {
+          await supabase
+            .from('slides')
+            .update({
+              ai_extracted_text: extractedText,
+              enrichment_status: 'completed'
+            })
+            .eq('id', slide.id)
 
-        // Refresh the slide so downstream components pick up the new text
-        queryClient.invalidateQueries({ queryKey: ['slide', slide.id] })
+          // Refresh the slide so downstream components pick up the new text
+          queryClient.invalidateQueries({ queryKey: ['slide', slide.id] })
+        } else {
+          // Extraction returned empty, mark as failed
+          console.warn('[Enrichment] Extraction returned empty text for slide', slide.id)
+          await supabase
+            .from('slides')
+            .update({ enrichment_status: 'failed' })
+            .eq('id', slide.id)
+        }
       } catch (err) {
-        // Silent failure — original_text is still used as fallback
+        // Mark enrichment as failed so we don't retry repeatedly
         console.warn('[Enrichment] Failed for slide', slide.id, err?.message)
+        try {
+          await supabase
+            .from('slides')
+            .update({ enrichment_status: 'failed' })
+            .eq('id', slide.id)
+        } catch (updateErr) {
+          console.warn('[Enrichment] Failed to update status for slide', slide.id, updateErr?.message)
+        }
       } finally {
         if (!cancelled) setIsEnriching(false)
       }
